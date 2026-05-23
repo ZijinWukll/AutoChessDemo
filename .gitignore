@@ -1,0 +1,25 @@
+# Visual Studio build output
+x64/
+Debug/
+Release/
+
+# Visual Studio user files
+.vs/
+*.vcxproj.user
+*.sln.docstates
+
+# Qt Creator / qmake files (not used)
+*.pro
+*.pro.user
+Makefile
+Makefile.*
+
+# IDE
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+Thumbs.db
+.DS_Store

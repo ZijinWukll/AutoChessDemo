@@ -1,0 +1,54 @@
+<RCC>
+    <qresource prefix="AutoChessDemo">
+        <!-- 单位精灵 -->
+        <file>assets/units/warrior.png</file>
+        <file>assets/units/warrior_attack.png</file>
+        <file>assets/units/warrior_hurt.png</file>
+        <file>assets/units/archer.png</file>
+        <file>assets/units/archer_attack.png</file>
+        <file>assets/units/mage.png</file>
+        <file>assets/units/mage_attack.png</file>
+        <file>assets/units/healer.png</file>
+        <file>assets/units/knight.png</file>
+        <file>assets/units/knight_attack.png</file>
+        <file>assets/units/assassin.png</file>
+        <file>assets/units/assassin_attack.png</file>
+        <file>assets/units/tank.png</file>
+        <file>assets/units/boss.png</file>
+        <file>assets/units/boss_attack.png</file>
+
+        <!-- UI 按钮 -->
+        <file>assets/ui/buttons/btn_combat.png</file>
+        <file>assets/ui/buttons/btn_combat_pressed.png</file>
+        <file>assets/ui/buttons/btn_refresh.png</file>
+        <file>assets/ui/buttons/btn_refresh_pressed.png</file>
+        <file>assets/ui/buttons/btn_danger.png</file>
+        <file>assets/ui/buttons/btn_danger_pressed.png</file>
+        <file>assets/ui/buttons/btn_default.png</file>
+        <file>assets/ui/buttons/btn_default_pressed.png</file>
+        <file>assets/ui/buttons/btn_special.png</file>
+        <file>assets/ui/buttons/btn_special_pressed.png</file>
+
+        <!-- UI 面板 -->
+        <file>assets/ui/hud/panel_bg.png</file>
+        <file>assets/ui/hud/panel_inlay.png</file>
+
+        <!-- 棋盘 -->
+        <file>assets/ui/board/highlight_select.png</file>
+        <file>assets/ui/board/highlight_move.png</file>
+        <file>assets/ui/board/highlight_attack.png</file>
+
+        <!-- 备战区 -->
+        <file>assets/ui/bench/bench_slot.png</file>
+
+        <!-- 商店 -->
+        <file>assets/ui/shop/card_bg.png</file>
+        <file>assets/ui/shop/card_inlay.png</file>
+        <file>assets/ui/shop/shop_bg.png</file>
+
+        <!-- 星级外框 -->
+        <file>assets/ui/frames/star_1.png</file>
+        <file>assets/ui/frames/star_2.png</file>
+        <file>assets/ui/frames/star_3.png</file>
+    </qresource>
+</RCC>

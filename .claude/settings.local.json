@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(echo '{\"model\":{\"display_name\":\"deepseek-v4-flash\"},\"session_name\":\"autochess\",\"context_window\":{\"remaining_percentage\":85.2},\"workspace\":{\"current_dir\":\"E:\\\\\\\\cpp项目\"}}' > /tmp/test_status.json && cat /tmp/test_status.json | grep -o '\"display_name\"[[:space:]]*:[[:space:]]*\"[^\"]*\"' | head -1 | sed 's/.*:[[:space:]]*\"\\\\\\(.*\\\\\\)\"/\\\\1/')",
+      "Read(//tmp/**)"
+    ]
+  }
+}
