@@ -2,6 +2,7 @@
 
 #include <QPainter>
 #include <QMap>
+#include <QVBoxLayout>
 
 namespace synera
 {
@@ -19,22 +20,86 @@ namespace synera
         return ":/AutoChessDemo/assets/units/warrior.png";
     }
 
+    static int GetUnitCostForSell(const std::string& name)
+    {
+        if (name == "步兵" || name == "弓箭手" || name == "侍从") return 1;
+        if (name == "法师" || name == "骑士" || name == "治疗师") return 2;
+        if (name == "刺客" || name == "狂战士" || name == "狙击手") return 3;
+        return 1;
+    }
+
     UnitInfoWidget::UnitInfoWidget(QWidget* parent)
         : QWidget(parent)
     {
-        setMinimumSize(200, 300);
+        setMinimumSize(200, 360);
+
+        // 创建出售按钮（默认隐藏）
+        m_sellButton = new QPushButton("出售", this);
+        m_sellButton->setStyleSheet(
+            "QPushButton { background-color: #c0392b; color: white; border: none; "
+            "border-radius: 5px; font-size: 11px; font-weight: bold; }"
+            "QPushButton:hover { background-color: #e74c3c; }"
+            "QPushButton:pressed { background-color: #96281b; }");
+        m_sellButton->hide();
+        connect(m_sellButton, &QPushButton::clicked, this, [this]() {
+            if (m_selectedUnit)
+                emit SellRequested(m_selectedUnit);
+        });
     }
 
-    void UnitInfoWidget::ShowUnit(std::shared_ptr<Unit> unit)
+    void UnitInfoWidget::ShowUnit(std::shared_ptr<Unit> unit, bool isShopPreview)
     {
         m_selectedUnit = unit;
+        m_isShopPreview = isShopPreview;
+        UpdateSellButton();
         update();
     }
 
     void UnitInfoWidget::Clear()
     {
         m_selectedUnit.reset();
+        m_isShopPreview = false;
+        if (m_sellButton)
+            m_sellButton->hide();
         update();
+    }
+
+    void UnitInfoWidget::UpdateSellButton()
+    {
+        if (!m_sellButton || !m_selectedUnit)
+        {
+            if (m_sellButton) m_sellButton->hide();
+            return;
+        }
+
+        // 只有在选中己方单位且不是商店预览时，才显示出售按钮
+        bool showSell = (m_selectedUnit->GetOwner() == Owner::PlayerCtrl && !m_isShopPreview);
+        if (showSell)
+        {
+            // 计算出售价格
+            int cost = GetUnitCostForSell(m_selectedUnit->GetName());
+            int starMul = 1;
+            switch (m_selectedUnit->GetStarLevel())
+            {
+            case StarLevel::Two:   starMul = 3;  break;
+            case StarLevel::Three: starMul = 9;  break;
+            default:               starMul = 1;  break;
+            }
+            int sellPrice = cost * starMul;
+
+            m_sellButton->setText(QString("出售 %1金").arg(sellPrice));
+
+            // 定位在底部居中，在所有文字下方
+            int btnW = 110;
+            int btnH = 30;
+            m_sellButton->setFixedSize(btnW, btnH);
+            m_sellButton->move((width() - btnW) / 2, height() - 38);
+            m_sellButton->show();
+        }
+        else
+        {
+            m_sellButton->hide();
+        }
     }
 
     void UnitInfoWidget::paintEvent(QPaintEvent* event)
@@ -193,5 +258,8 @@ namespace synera
         y += 10;
         painter.setPen(QColor(100, 95, 120));
         painter.drawText(12, y, "装备: (无)");
+
+        // 刷新出售按钮位置（窗口大小变化时）
+        UpdateSellButton();
     }
 }

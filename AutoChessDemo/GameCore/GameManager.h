@@ -55,6 +55,7 @@ namespace synera
         ShopSystem& GetShop();
         void BuyUnitFromShop(int index);        // 购买并放入备战区
         void SellUnitFromBench(int slotIndex);  // 出售备战区单位获得金币
+        void SellUnit(std::shared_ptr<Unit> unit); // 出售任意己方单位（棋盘或备战区）
 
         // ---- 阶段三：羁绊系统 ----
         const std::vector<SynergyInfo>& GetActiveSynergies() const;
@@ -106,13 +107,20 @@ namespace synera
 
         // ---- 战斗结果 ----
         bool m_lastCombatResult = false;
+        bool m_gameOver = false;    // 游戏失败（HP=0 或第15波失败）
+        bool m_gameWon = false;     // 游戏通关（打完第15波全部）
 
     public:
         bool GetLastCombatResult() const { return m_lastCombatResult; }
+        bool IsGameOver() const { return m_gameOver; }
+        bool IsGameWon() const { return m_gameWon; }
 
         // ---- 内部函数 ----
         // #TODO: 战斗结束后的处理（扣血、发放金币、掉落装备）
         void OnCombatEnd(bool playerWon);
+
+        // 战斗前给己方单位应用羁绊加成
+        void ApplySynergyBonuses();
 
         // #TODO: 进入下一波
         void NextWave();

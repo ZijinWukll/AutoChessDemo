@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QWidget>
+#include <QPushButton>
 #include <memory>
 
 #include "GameCore/Unit.h"
@@ -16,25 +17,24 @@ namespace synera
         explicit UnitInfoWidget(QWidget* parent = nullptr);
 
         // 显示指定单位的信息。
-        void ShowUnit(std::shared_ptr<Unit> unit);
+        // isShopPreview = true 表示该单位来自商店预览（不显示出售按钮）
+        void ShowUnit(std::shared_ptr<Unit> unit, bool isShopPreview = false);
 
         // 清空显示。
         void Clear();
+
+    signals:
+        // 点击出售按钮时发出
+        void SellRequested(std::shared_ptr<Unit> unit);
 
     protected:
         void paintEvent(QPaintEvent* event) override;
 
     private:
         std::shared_ptr<Unit> m_selectedUnit;
+        bool m_isShopPreview = false;
+        QPushButton* m_sellButton = nullptr;
 
-        // #TODO: 详细渲染
-        //   显示内容：
-        //   - 单位名称（含星级 ★★★）
-        //   - HP / MaxHP（血量条）
-        //   - ATK（攻击力）
-        //   - Range（攻击范围）
-        //   - Mana / MaxMana（法力条）
-        //   - 羁绊标签列表
-        //   - 装备列表（阶段三）
+        void UpdateSellButton();
     };
 }

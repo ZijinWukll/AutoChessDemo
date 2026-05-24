@@ -58,6 +58,7 @@ private:
     QLabel* m_goldLabel = nullptr;      // 显示金币
     QLabel* m_hpLabel = nullptr;        // 显示玩家血量
     QLabel* m_phaseLabel = nullptr;     // 显示当前阶段
+    QLabel* m_synergyLabel = nullptr;   // 显示激活的羁绊
     QLabel* m_tipLabel = nullptr;       // 操作提示
 
     QTimer* m_timer = nullptr;          // 60fps 定时器

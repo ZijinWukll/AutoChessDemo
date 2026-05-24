@@ -39,6 +39,10 @@ namespace synera
     int Unit::GetRange() const { return m_range; }
     bool Unit::IsAlive() const { return m_hp > 0; }
     const std::vector<Trait>& Unit::GetTraits() const { return m_traits; }
+    bool Unit::HasTrait(const Trait& trait) const
+    {
+        return std::find(m_traits.begin(), m_traits.end(), trait) != m_traits.end();
+    }
     StarLevel Unit::GetStarLevel() const { return m_starLevel; }
 
     void Unit::TakeDamage(int value)
@@ -101,8 +105,8 @@ namespace synera
         double starMul = 1.0;
         switch (m_starLevel) {
             case StarLevel::One:   starMul = 1.0; break;
-            case StarLevel::Two:   starMul = 1.5; break;
-            case StarLevel::Three: starMul = 2.0; break;
+            case StarLevel::Two:   starMul = 2.0; break;
+            case StarLevel::Three: starMul = 3.0; break;
             default:               starMul = 1.0; break;
         }
 
@@ -170,13 +174,27 @@ namespace synera
         switch (m_starLevel)
         {
         case StarLevel::One:   starMul = 1.0; break;
-        case StarLevel::Two:   starMul = 1.5; break;
-        case StarLevel::Three: starMul = 2.0; break;
+        case StarLevel::Two:   starMul = 2.0; break;
+        case StarLevel::Three: starMul = 3.0; break;
         }
 
         m_atk = static_cast<int>(std::round(static_cast<double>(m_baseAtk) * starMul));
         m_maxHp = static_cast<int>(std::round(static_cast<double>(m_baseHp) * starMul));
         m_hp = m_maxHp;
+    }
+
+    void Unit::ApplySynergyBuff(float atkMul, float hpMul, int rangeBonus)
+    {
+        // 在现有属性上叠加羁绊加成（乘积计算，不重复计算星级）
+        m_atk = static_cast<int>(std::round(static_cast<double>(m_atk) * atkMul));
+        m_maxHp = static_cast<int>(std::round(static_cast<double>(m_maxHp) * hpMul));
+        m_hp = m_maxHp;  // 羁绊加血满血
+        m_range += rangeBonus;
+    }
+
+    void Unit::SetHpDirectly(int hp)
+    {
+        m_hp = std::max(0, std::min(m_maxHp, hp));
     }
 
     // ========== 位置 ==========

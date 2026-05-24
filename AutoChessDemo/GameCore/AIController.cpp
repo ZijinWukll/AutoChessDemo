@@ -118,30 +118,96 @@ namespace synera
             enemies.push_back(createUnit(s_unitTemplates[3]));
             break;
         case 10:
-            // Boss 波：Boss + 2 狂战士 + 2 狙击手 + 1 治疗
+            // 精英关：3 狂战士 + 2 狙击手 + 2 法师 + 1 治疗
+            enemies.push_back(createUnit(s_unitTemplates[7]));
+            enemies.push_back(createUnit(s_unitTemplates[7]));
+            enemies.push_back(createUnit(s_unitTemplates[7]));
+            enemies.push_back(createUnit(s_unitTemplates[8]));
+            enemies.push_back(createUnit(s_unitTemplates[8]));
+            enemies.push_back(createUnit(s_unitTemplates[3]));
+            enemies.push_back(createUnit(s_unitTemplates[3]));
+            enemies.push_back(createUnit(s_unitTemplates[5]));
+            break;
+        case 11:
+            // 4 狂战士 + 2 狙击手 + 2 刺客 + 1 治疗
+            enemies.push_back(createUnit(s_unitTemplates[7]));
+            enemies.push_back(createUnit(s_unitTemplates[7]));
+            enemies.push_back(createUnit(s_unitTemplates[7]));
+            enemies.push_back(createUnit(s_unitTemplates[7]));
+            enemies.push_back(createUnit(s_unitTemplates[8]));
+            enemies.push_back(createUnit(s_unitTemplates[8]));
+            enemies.push_back(createUnit(s_unitTemplates[6]));
+            enemies.push_back(createUnit(s_unitTemplates[6]));
+            enemies.push_back(createUnit(s_unitTemplates[5]));
+            break;
+        case 12:
+            // 全 3 费精锐：3 狂战士 + 3 狙击手 + 2 刺客 + 1 治疗
+            enemies.push_back(createUnit(s_unitTemplates[7]));
+            enemies.push_back(createUnit(s_unitTemplates[7]));
+            enemies.push_back(createUnit(s_unitTemplates[7]));
+            enemies.push_back(createUnit(s_unitTemplates[8]));
+            enemies.push_back(createUnit(s_unitTemplates[8]));
+            enemies.push_back(createUnit(s_unitTemplates[8]));
+            enemies.push_back(createUnit(s_unitTemplates[6]));
+            enemies.push_back(createUnit(s_unitTemplates[6]));
+            enemies.push_back(createUnit(s_unitTemplates[5]));
+            break;
+        case 13:
+            // 混合大军：2 狂战士 + 2 狙击手 + 2 骑士 + 2 法师 + 2 刺客
+            enemies.push_back(createUnit(s_unitTemplates[7]));
+            enemies.push_back(createUnit(s_unitTemplates[7]));
+            enemies.push_back(createUnit(s_unitTemplates[8]));
+            enemies.push_back(createUnit(s_unitTemplates[8]));
+            enemies.push_back(createUnit(s_unitTemplates[4]));
+            enemies.push_back(createUnit(s_unitTemplates[4]));
+            enemies.push_back(createUnit(s_unitTemplates[3]));
+            enemies.push_back(createUnit(s_unitTemplates[3]));
+            enemies.push_back(createUnit(s_unitTemplates[6]));
+            enemies.push_back(createUnit(s_unitTemplates[6]));
+            break;
+        case 14:
+            // 终极精英：4 狂战士 + 3 狙击手 + 2 刺客 + 1 治疗（10 个单位）
+            enemies.push_back(createUnit(s_unitTemplates[7]));
+            enemies.push_back(createUnit(s_unitTemplates[7]));
+            enemies.push_back(createUnit(s_unitTemplates[7]));
+            enemies.push_back(createUnit(s_unitTemplates[7]));
+            enemies.push_back(createUnit(s_unitTemplates[8]));
+            enemies.push_back(createUnit(s_unitTemplates[8]));
+            enemies.push_back(createUnit(s_unitTemplates[8]));
+            enemies.push_back(createUnit(s_unitTemplates[6]));
+            enemies.push_back(createUnit(s_unitTemplates[6]));
+            enemies.push_back(createUnit(s_unitTemplates[5]));
+            break;
+        case 15:
+            // Boss 关：Boss + 4 狂战士 + 3 狙击手 + 2 刺客 + 1 治疗
         {
-            // Boss 使用刺客模板但大幅增强
+            // Boss 使用刺客模板但大幅增强（超高属性）
             auto boss = std::make_shared<Unit>(
                 "Boss", Owner::EnemyCtrl,
-                static_cast<int>(800 * mult),
-                static_cast<int>(60 * mult),
+                static_cast<int>(1200 * mult),
+                static_cast<int>(70 * mult),
                 2, MAX_MANA,
                 std::vector<Trait>{"恶魔", "Boss"},
-                StarLevel::Two   // Boss 是 2★
+                StarLevel::Three  // Boss 是 3★
             );
             enemies.push_back(boss);
             enemies.push_back(createUnit(s_unitTemplates[7]));
             enemies.push_back(createUnit(s_unitTemplates[7]));
+            enemies.push_back(createUnit(s_unitTemplates[7]));
+            enemies.push_back(createUnit(s_unitTemplates[7]));
             enemies.push_back(createUnit(s_unitTemplates[8]));
             enemies.push_back(createUnit(s_unitTemplates[8]));
+            enemies.push_back(createUnit(s_unitTemplates[8]));
+            enemies.push_back(createUnit(s_unitTemplates[6]));
+            enemies.push_back(createUnit(s_unitTemplates[6]));
             enemies.push_back(createUnit(s_unitTemplates[5]));
             break;
         }
         default:
-            // 第 10+ 波继续生成高难度组合
-            for (int i = 0; i < 6; ++i)
+            // 超高难度：8 个随机高费单位
+            for (int i = 0; i < 8; ++i)
             {
-                int idx = std::rand() % 9;
+                int idx = 3 + (std::rand() % 6); // 只选 2-3 费单位
                 enemies.push_back(createUnit(s_unitTemplates[idx]));
             }
             break;
@@ -188,10 +254,12 @@ namespace synera
 
     float AIController::GetWaveMultiplier(int waveNumber) const
     {
-        // 基础提升 10%，第 4 轮后额外 +10%
-        float base = std::min(3.0f, 1.1f + (waveNumber - 1) * 0.15f);
-        if (waveNumber >= 4)
+        // 平滑递增：每波 +8%，第 10 波后额外 +8%（原先是15%，跳跃太大）
+        float base = 1.0f + (waveNumber - 1) * 0.08f;
+        if (waveNumber >= 10)
+            base *= 1.08f;
+        if (waveNumber >= 13)
             base *= 1.1f;
-        return std::min(3.5f, base);
+        return std::min(4.5f, base);
     }
 }

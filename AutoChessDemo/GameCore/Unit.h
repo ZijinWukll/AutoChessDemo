@@ -30,6 +30,7 @@ namespace synera
         bool IsAlive() const;
 
         const std::vector<Trait>& GetTraits() const;
+        bool HasTrait(const Trait& trait) const;
         StarLevel GetStarLevel() const;
 
         // ---- 合星用：获取基础属性（不含星级加成） ----
@@ -67,8 +68,10 @@ namespace synera
 
         // ---- 阶段三：合星 ----
         void SetStarLevel(StarLevel star);
-        // #TODO: 合星后提升属性（ATK×1.5, HP×1.5 等）
         void ApplyStarBonus();
+        // ---- 阶段三：羁绊加成（临时，战斗前应用，战后通过 ApplyStarBonus 清除） ----
+        void ApplySynergyBuff(float atkMul, float hpMul, int rangeBonus);
+        void SetHpDirectly(int hp); // 仅供羁绊系统临时设置血量
 
         // ---- 阶段二：位置追踪 ----
         // 单位在棋盘上的位置（由 Board 管理，单位仅记录副本用于寻路/渲染）

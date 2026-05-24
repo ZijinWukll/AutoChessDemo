@@ -33,8 +33,8 @@ AutoChessDemo::AutoChessDemo(QWidget *parent)
     m_timer->start(10);
 
     setWindowTitle("Synera: Synergy Auto-Arena");
-    resize(750, 800);
-    setMinimumSize(700, 700);
+    resize(800, 850);
+    setMinimumSize(750, 750);
     // 居中显示
     if (auto* screen = QGuiApplication::primaryScreen())
     {
@@ -195,6 +195,14 @@ void AutoChessDemo::SetupUI()
     statusLayout->addWidget(m_goldLabel);
     mainLayout->addLayout(statusLayout);
 
+    // ---- 羁绊状态栏 ----
+    m_synergyLabel = new QLabel("", this);
+    m_synergyLabel->setStyleSheet("color: #b090e0; font-size: 11px; padding: 2px 8px; "
+                                   "background: rgba(40, 35, 60, 0.5); border-radius: 4px;");
+    m_synergyLabel->setWordWrap(true);
+    m_synergyLabel->setMaximumHeight(40);
+    mainLayout->addWidget(m_synergyLabel);
+
     // ---- 棋盘 + 详情面板（水平分割） ----
     QSplitter* mainSplitter = new QSplitter(Qt::Horizontal, this);
 
@@ -254,6 +262,35 @@ void AutoChessDemo::SetupUI()
     connect(m_shopWidget, &ShopWidget::UnitPurchased, this, &AutoChessDemo::OnShopUnitClicked);
     shopLayout->addWidget(m_shopWidget);
 
+    // 连接出售按钮
+    connect(m_unitInfoWidget, &UnitInfoWidget::SellRequested, this, [this](std::shared_ptr<Unit> unit) {
+        if (m_gameManager.GetCurrentPhase() != synera::GamePhase::Preparation)
+            return;
+        if (!unit || m_gameManager.IsGameOver() || m_gameManager.IsGameWon())
+            return;
+
+        // 取消拖拽/预览状态
+        if (m_dragInfo.active) CancelDrag();
+        if (m_shopPreviewUnit)
+        {
+            m_shopPreviewUnit.reset();
+            if (m_confirmPurchaseBtn) m_confirmPurchaseBtn->hide();
+        }
+
+        // 获取出售前金币用于显示
+        int goldBefore = m_gameManager.GetGold();
+        m_gameManager.SellUnit(unit);
+        int goldEarned = m_gameManager.GetGold() - goldBefore;
+
+        if (goldEarned > 0)
+        {
+            m_tipLabel->setText(QString("💰 出售成功！获得 %1 金币").arg(goldEarned));
+        }
+        m_unitInfoWidget->Clear();
+        m_boardWidget->update();
+        m_benchWidget->update();
+    });
+
     QHBoxLayout* btnLayout = new QHBoxLayout();
     QPushButton* startCombatBtn = new QPushButton("⚔ 开始战斗", this);
     startCombatBtn->setToolTip("将备战区单位部署到棋盘上，然后点击开始战斗");
@@ -307,6 +344,34 @@ void AutoChessDemo::OnTick()
                            .arg(m_gameManager.GetPlayerHp()));
     m_goldLabel->setText(QString("金币: <b style='color:#fbbf24'>%1</b>").arg(m_gameManager.GetGold()));
 
+    // 更新羁绊显示
+    {
+        const auto& synergies = m_gameManager.GetActiveSynergies();
+        if (synergies.empty())
+        {
+            m_synergyLabel->setText("未激活羁绊");
+        }
+        else
+        {
+            // 羁绊效果描述
+            static const QMap<QString, QString> effectDesc = {
+                {"人类", "ATK+"}, {"战士", "HP+"}, {"兽人", "ATK+"},
+                {"精灵", "ATK+"}, {"远程", "射程+"}, {"法师", "ATK+"},
+                {"骑士", "HP+"}, {"治疗", "全属性+"}, {"刺客", "ATK+"},
+                {"侍从", "HP+"}
+            };
+            QStringList parts;
+            for (auto& info : synergies)
+            {
+                QString traitName = QString::fromStdString(info.trait);
+                QString desc = effectDesc.value(traitName, "");
+                QString bonus = (info.activeThreshold >= 4) ? "Ⅱ" : "Ⅰ";
+                parts << QString("%1(%2) %3%4").arg(traitName).arg(info.unitCount).arg(desc).arg(bonus);
+            }
+            m_synergyLabel->setText("⚡ " + parts.join("  "));
+        }
+    }
+
     // 战斗结果展示（基于时间戳，不受帧率影响）
     bool resultExpired = (m_combatResultEndTime > 0 && QDateTime::currentMSecsSinceEpoch() >= m_combatResultEndTime);
     if (resultExpired)
@@ -331,36 +396,88 @@ void AutoChessDemo::OnTick()
     if (prevPhase == synera::GamePhase::Combat && phase == synera::GamePhase::Preparation)
     {
         bool won = m_gameManager.GetLastCombatResult();
-        int wave = m_gameManager.GetCurrentWave() - 1;
-        int goldReward = 5 + wave;
-        if (wave > 3) goldReward += 3;   // 第4波起额外+3
-        if (wave > 6) goldReward += 4;   // 第7波起再额外+4
-        m_combatResultText = won
-            ? QString("🎉 第 %1 波 胜利！获得 %2 金币").arg(wave).arg(goldReward)
-            : QString("💀 第 %1 波 失败！损失 %2 生命值").arg(wave).arg(2 + wave);
+        int wave = m_gameManager.GetCurrentWave() - 1;  // 已经打完的波次
 
-        // 播放战斗结果音效
-        if (won) synera::AudioManager::PlayVictory();
-        else synera::AudioManager::PlayDefeat();
+        // 检查是否游戏通关或结束
+        bool gameWon = m_gameManager.IsGameWon();
+        bool gameOver = m_gameManager.IsGameOver();
 
-        // 设置棋盘中央覆盖层
-        if (m_combatResultOverlay)
+        if (gameWon)
         {
-            QString title = won ? "胜  利" : "失  败";
-            QString color = won ? "#4ade80" : "#f87171";
-            m_combatResultOverlay->setStyleSheet(QString(
-                "background: rgba(0,0,0,200); color: %1; font-size: 32px; font-weight: bold; "
-                "border: 3px solid %1; border-radius: 15px; padding: 10px;").arg(color));
-            m_combatResultOverlay->setText(title);
-            m_combatResultOverlay->show();
-        }
+            // 游戏通关 — 显示通关字样，3 秒后自动关闭
+            m_combatResultText = "🏆 恭喜通关！你击败了所有 15 波敌人！";
+            m_tipLabel->setText(m_combatResultText);
+            synera::AudioManager::PlayVictory();
 
-        m_combatResultEndTime = QDateTime::currentMSecsSinceEpoch() + 3000;  // 显示 3 秒
+            if (m_combatResultOverlay)
+            {
+                m_combatResultOverlay->setStyleSheet(
+                    "background: rgba(0,0,0,200); color: #ffd700; font-size: 32px; font-weight: bold; "
+                    "border: 3px solid #ffd700; border-radius: 15px; padding: 10px;");
+                m_combatResultOverlay->setText("游 戏 通 关");
+                m_combatResultOverlay->show();
+            }
+            // 3 秒后自动关闭游戏
+            QTimer::singleShot(3000, qApp, &QApplication::quit);
+        }
+        else if (gameOver)
+        {
+            // 游戏结束 — 显示结束字样，3 秒后自动关闭
+            m_combatResultText = "💀 游戏结束！点击窗口任意位置关闭";
+            m_tipLabel->setText(m_combatResultText);
+            synera::AudioManager::PlayDefeat();
+
+            if (m_combatResultOverlay)
+            {
+                m_combatResultOverlay->setStyleSheet(
+                    "background: rgba(0,0,0,200); color: #f87171; font-size: 32px; font-weight: bold; "
+                    "border: 3px solid #f87171; border-radius: 15px; padding: 10px;");
+                m_combatResultOverlay->setText("游 戏 结 束");
+                m_combatResultOverlay->show();
+            }
+            // 3 秒后自动关闭游戏
+            QTimer::singleShot(3000, qApp, &QApplication::quit);
+        }
+        else
+        {
+            // 普通胜负（第 1-14 波）
+            int goldReward = wave * 4 + 5;
+            int hpLoss = (wave + 1) * 4;  // 扣血 = 当前波数 × 4
+            // 注意：wave 是已经打完的第 N 波，所以实际扣血是按 wave+1 算
+            // 但在 OnCombatEnd 里 damage = m_currentWave * 4，当时 m_currentWave == wave+1
+            // 所以显示的时候应该用 wave+1，跟实际扣血一致
+            int actualWave = wave + 1;
+            m_combatResultText = won
+                ? QString("🎉 第 %1 波 胜利！获得 %2 金币").arg(actualWave).arg(goldReward)
+                : QString("💀 第 %1 波 失败！损失 %2 生命值").arg(actualWave).arg(actualWave * 4);
+
+            // 播放战斗结果音效
+            if (won) synera::AudioManager::PlayVictory();
+            else synera::AudioManager::PlayDefeat();
+
+            // 设置棋盘中央覆盖层
+            if (m_combatResultOverlay)
+            {
+                QString title = won ? "胜  利" : "失  败";
+                QString color = won ? "#4ade80" : "#f87171";
+                m_combatResultOverlay->setStyleSheet(QString(
+                    "background: rgba(0,0,0,200); color: %1; font-size: 32px; font-weight: bold; "
+                    "border: 3px solid %1; border-radius: 15px; padding: 10px;").arg(color));
+                m_combatResultOverlay->setText(title);
+                m_combatResultOverlay->show();
+            }
+
+            m_combatResultEndTime = QDateTime::currentMSecsSinceEpoch() + 3000;  // 显示 3 秒
+        }
     }
     prevPhase = phase;
 
     // 操作提示（根据阶段和选中状态变化）
-    if (phase == synera::GamePhase::Preparation)
+    if (m_gameManager.IsGameOver() || m_gameManager.IsGameWon())
+    {
+        // 游戏已结束或通关，不覆盖结果提示
+    }
+    else if (phase == synera::GamePhase::Preparation)
     {
         if (m_combatResultEndTime > 0)
         {
@@ -405,6 +522,8 @@ void AutoChessDemo::OnTick()
 void AutoChessDemo::OnBoardCellClicked(int row, int col)
 {
     if (m_gameManager.GetCurrentPhase() != synera::GamePhase::Preparation)
+        return;
+    if (m_gameManager.IsGameOver() || m_gameManager.IsGameWon())
         return;
 
     // 拖拽中点击棋盘 → 尝试放置/移动
@@ -453,6 +572,8 @@ void AutoChessDemo::OnBenchSlotClicked(int index)
 {
     if (m_gameManager.GetCurrentPhase() != synera::GamePhase::Preparation)
         return;
+    if (m_gameManager.IsGameOver() || m_gameManager.IsGameWon())
+        return;
 
     // 处理拖拽中点击备战区（拖拽判断必须放在 unit 判空前）
     if (m_dragInfo.active)
@@ -498,6 +619,8 @@ void AutoChessDemo::OnBenchSellRequested(int index)
 {
     if (m_gameManager.GetCurrentPhase() != synera::GamePhase::Preparation)
         return;
+    if (m_gameManager.IsGameOver() || m_gameManager.IsGameWon())
+        return;
 
     auto& bench = m_gameManager.GetBench();
     auto unit = bench.GetUnit(static_cast<size_t>(index));
@@ -529,15 +652,17 @@ void AutoChessDemo::OnShopUnitClicked(int index)
 {
     if (m_gameManager.GetCurrentPhase() != synera::GamePhase::Preparation)
         return;
+    if (m_gameManager.IsGameOver() || m_gameManager.IsGameWon())
+        return;
 
     auto& shop = m_gameManager.GetShop();
     const auto& units = shop.GetShopUnits();
     if (index < 0 || index >= static_cast<int>(units.size()) || !units[index])
         return;
 
-    // 显示商店单位预览
+    // 显示商店单位预览（标记为商店预览，不显示出售按钮）
     m_shopPreviewUnit = units[index];
-    m_unitInfoWidget->ShowUnit(m_shopPreviewUnit);
+    m_unitInfoWidget->ShowUnit(m_shopPreviewUnit, true);
 
     // 显示确认购买按钮
     if (m_confirmPurchaseBtn)
@@ -547,6 +672,8 @@ void AutoChessDemo::OnShopUnitClicked(int index)
 void AutoChessDemo::OnConfirmPurchase()
 {
     if (!m_shopPreviewUnit)
+        return;
+    if (m_gameManager.IsGameOver() || m_gameManager.IsGameWon())
         return;
 
     // 从商店购买该单位
@@ -564,7 +691,19 @@ void AutoChessDemo::OnConfirmPurchase()
 
     if (foundIndex < 0)
     {
+        // 单位已不在商店中（可能已刷新），重置预览
         m_shopPreviewUnit.reset();
+        m_unitInfoWidget->Clear();
+        if (m_confirmPurchaseBtn) m_confirmPurchaseBtn->hide();
+        return;
+    }
+
+    // 防御性检查：确认该槽位仍有单位（不为空）
+    if (!units[foundIndex])
+    {
+        m_shopPreviewUnit.reset();
+        m_unitInfoWidget->Clear();
+        if (m_confirmPurchaseBtn) m_confirmPurchaseBtn->hide();
         return;
     }
 
@@ -608,6 +747,8 @@ void AutoChessDemo::OnStartCombatClicked()
 {
     if (m_gameManager.GetCurrentPhase() != synera::GamePhase::Preparation)
         return;
+    if (m_gameManager.IsGameOver() || m_gameManager.IsGameWon())
+        return;
     // 清除选中、高亮和商店预览
     if (m_dragInfo.active) CancelDrag();
     if (m_shopPreviewUnit)
@@ -621,6 +762,8 @@ void AutoChessDemo::OnStartCombatClicked()
 void AutoChessDemo::OnRefreshShopClicked()
 {
     if (m_gameManager.GetCurrentPhase() != synera::GamePhase::Preparation)
+        return;
+    if (m_gameManager.IsGameOver() || m_gameManager.IsGameWon())
         return;
 
     auto& shop = m_gameManager.GetShop();

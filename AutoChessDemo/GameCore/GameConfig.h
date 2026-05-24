@@ -39,6 +39,9 @@ namespace synera
     constexpr int EQUIP_DROP_INTERVAL_MIN = 4;      // 装备掉落最小间隔回合
     constexpr int EQUIP_DROP_INTERVAL_MAX = 6;      // 装备掉落最大间隔回合
 
+    // ---- 游戏轮数 ----
+    constexpr int MAX_WAVES = 15;                    // 总波数（第 15 波为 Boss 关）
+
     // ---- 阶段三：羁绊 ----
     constexpr int SYNERGY_THRESHOLD_1 = 2;           // 羁绊生效阈值档位1
     constexpr int SYNERGY_THRESHOLD_2 = 4;           // 羁绊生效阈值档位2

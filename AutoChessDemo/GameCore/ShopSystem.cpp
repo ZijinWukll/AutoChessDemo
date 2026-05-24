@@ -80,11 +80,11 @@ namespace synera
         // 根据商店等级确定费用概率
         // 等级 | 1费  | 2费  | 3费
         //  1   | 100% |  0%  |  0%
-        //  2   | 70%  | 25%  |  5%
-        //  3   | 50%  | 35%  | 15%
-        //  4   | 30%  | 35%  | 25%
-        //  5   | 20%  | 30%  | 30%
-        //  6+  | 10%  | 25%  | 30%
+        //  2   | 65%  | 30%  |  5%
+        //  3   | 40%  | 35%  | 25%
+        //  4   | 20%  | 35%  | 45%
+        //  5   | 10%  | 30%  | 60%
+        //  6+  |  5%  | 20%  | 75%
 
         int cost = 1;
         int roll = std::rand() % 100;
@@ -97,32 +97,32 @@ namespace synera
             cost = 1;
         else if (lvl == 2)
         {
-            if (roll < 70) cost = 1;
+            if (roll < 65) cost = 1;
             else if (roll < 95) cost = 2;
             else cost = 3;
         }
         else if (lvl == 3)
         {
-            if (roll < 50) cost = 1;
-            else if (roll < 85) cost = 2;
+            if (roll < 40) cost = 1;
+            else if (roll < 75) cost = 2;
             else cost = 3;
         }
         else if (lvl == 4)
         {
-            if (roll < 30) cost = 1;
-            else if (roll < 65) cost = 2;
+            if (roll < 20) cost = 1;
+            else if (roll < 55) cost = 2;
             else cost = 3;
         }
         else if (lvl == 5)
         {
-            if (roll < 20) cost = 1;
-            else if (roll < 50) cost = 2;
+            if (roll < 10) cost = 1;
+            else if (roll < 40) cost = 2;
             else cost = 3;
         }
         else  // lvl >= 6
         {
-            if (roll < 10) cost = 1;
-            else if (roll < 35) cost = 2;
+            if (roll < 5) cost = 1;
+            else if (roll < 25) cost = 2;
             else cost = 3;
         }
 

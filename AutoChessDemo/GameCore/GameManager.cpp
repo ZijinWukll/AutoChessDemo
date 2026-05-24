@@ -19,6 +19,9 @@ namespace synera
         m_currentWave = 1;
         m_playerHp = 100;
         m_phase = GamePhase::Preparation;
+        m_lastCombatResult = false;
+        m_gameOver = false;
+        m_gameWon = false;
 
         // 生成第一波敌方暂存
         m_enemyWave = m_aiController.GenerateEnemyWave(1);
@@ -52,19 +55,32 @@ namespace synera
 
     void GameManager::StartPreparationPhase()
     {
-        // 恢复棋盘上己方单位状态
+        // 恢复棋盘上己方单位状态（ApplyStarBonus 会清除上一轮羁绊加成）
         for (int r = 0; r < m_board.GetRows(); ++r)
             for (int c = 0; c < m_board.GetCols(); ++c)
             {
                 auto unit = m_board.GetOccupant(Position(r, c));
                 if (unit && unit->GetOwner() == Owner::PlayerCtrl)
                 {
-                    unit->ResetHp();
+                    unit->ApplyStarBonus();  // 重置为星级基础属性（清除羁绊）
                     unit->ResetMana();
                     unit->SetState(UnitState::Idle);
                     unit->SetAttackCooldown(0);
                 }
             }
+
+        // 同样清除备战区单位的残留羁绊加成
+        for (size_t i = 0; i < m_bench.GetCapacity(); ++i)
+        {
+            auto unit = m_bench.GetUnit(i);
+            if (unit && unit->GetOwner() == Owner::PlayerCtrl)
+            {
+                unit->ApplyStarBonus();
+                unit->ResetMana();
+                unit->SetState(UnitState::Idle);
+                unit->SetAttackCooldown(0);
+            }
+        }
 
         // 刷新商店
         int shopLevel = std::min(9, 1 + m_currentWave / 2);
@@ -96,6 +112,9 @@ namespace synera
                 if (u && u->GetOwner() == Owner::PlayerCtrl)
                     playerCombatUnits.push_back(u);
             }
+
+        // 应用羁绊加成（战斗前给己方单位加 Buff）
+        ApplySynergyBonuses();
 
         // 开始战斗
         m_combatSystem.StartCombat(playerCombatUnits, m_enemyWave);
@@ -257,7 +276,7 @@ namespace synera
         if (m_phase != GamePhase::Preparation)
             return;
 
-        // 先从商店预览读取信息（不修改商店状态）
+        // 先把商店数据取出来（局部引用，防止期间被修改）
         const auto& shopUnits = m_shopSystem.GetShopUnits();
         if (index < 0 || index >= static_cast<int>(shopUnits.size()) || !shopUnits[index])
             return;
@@ -269,7 +288,7 @@ namespace synera
         else if (name == "刺客" || name == "狂战士" || name == "狙击手")
             cost = 3;
 
-        // 先检查金币（修改商店前）
+        // 先检查金币
         if (m_gold < cost)
             return;
 
@@ -284,10 +303,18 @@ namespace synera
         // 全部检查通过，从商店取走单位
         auto unit = m_shopSystem.BuyUnit(index);
         if (!unit)
-            return;
+            return;  // 单位已被买走（极低概率），不扣金币
+
+        // 再次检查：取走的单位名称应与计算费用的名称一致
+        int actualCost = 1;
+        const std::string& actualName = unit->GetName();
+        if (actualName == "法师" || actualName == "骑士" || actualName == "治疗师")
+            actualCost = 2;
+        else if (actualName == "刺客" || actualName == "狂战士" || actualName == "狙击手")
+            actualCost = 3;
 
         m_bench.AddUnit(unit);
-        m_gold -= cost;
+        m_gold -= actualCost;
         m_playerUnits.push_back(unit);
         UpdateSynergies();
         TryMergeUnits();
@@ -332,6 +359,62 @@ namespace synera
         // 加金币
         m_gold += sellPrice;
 
+        UpdateSynergies();
+    }
+
+    void GameManager::SellUnit(std::shared_ptr<Unit> unit)
+    {
+        if (m_phase != GamePhase::Preparation || !unit)
+            return;
+
+        // 计算出售价格
+        int cost = GetUnitCostForSell(unit->GetName());
+        int starMul = 1;
+        switch (unit->GetStarLevel())
+        {
+        case StarLevel::Two:   starMul = 3;  break;
+        case StarLevel::Three: starMul = 9;  break;
+        default:               starMul = 1;  break;
+        }
+        int sellPrice = cost * starMul;
+
+        // 先从备战区找
+        bool found = false;
+        for (size_t i = 0; i < m_bench.GetCapacity(); ++i)
+        {
+            if (m_bench.GetUnit(i) == unit)
+            {
+                m_bench.RemoveUnit(i);
+                found = true;
+                break;
+            }
+        }
+
+        // 备战区没找到，从棋盘找
+        if (!found)
+        {
+            int gr = unit->GetGridRow();
+            int gc = unit->GetGridCol();
+            if (gr >= 0 && gc >= 0)
+            {
+                Position p(gr, gc);
+                if (m_board.GetOccupant(p) == unit && unit->GetOwner() == Owner::PlayerCtrl)
+                {
+                    m_board.RemoveUnit(p);
+                    found = true;
+                }
+            }
+        }
+
+        if (!found)
+            return;
+
+        // 从玩家单位列表中移除
+        auto it = std::find(m_playerUnits.begin(), m_playerUnits.end(), unit);
+        if (it != m_playerUnits.end())
+            m_playerUnits.erase(it);
+
+        m_gold += sellPrice;
         UpdateSynergies();
     }
 
@@ -482,18 +565,23 @@ namespace synera
 
         if (playerWon)
         {
-            // 胜利奖励（逐波递增）
+            // 胜利奖励：当前波数 × 4 + 5
             {
                 int wave = m_currentWave;
-                int reward = 5 + wave;
-                if (wave > 3) reward += 3;
-                if (wave > 6) reward += 4;
+                int reward = wave * 4 + 5;
                 m_gold += reward;
+
+                // HP 恢复：HP != 100 时回复 当前波数 × 2
+                if (m_playerHp < 100)
+                {
+                    m_playerHp += wave * 2;
+                    if (m_playerHp > 100)
+                        m_playerHp = 100;
+                }
             }
 
             // 掉落装备检查
             auto drops = m_equipManager.GenerateDrops(m_currentWave);
-            // 装备暂存到 inventory（预留接口）
             for (auto& equip : drops)
             {
                 m_equipmentInventory.push_back(equip);
@@ -501,14 +589,17 @@ namespace synera
         }
         else
         {
-            // 失败惩罚：前4局扣10，5-7局扣15，之后扣20
-            int damage = 10 + m_currentWave;
+            // 失败扣血：当前波数 × 4
+            int damage = m_currentWave * 4;
             m_playerHp -= damage;
             if (m_playerHp <= 0)
+            {
                 m_playerHp = 0;
+                m_gameOver = true;  // HP=0 → 游戏结束
+            }
 
-            // 失败补偿 5 金币，保证后续还能玩
-            m_gold += 5;
+            // 失败补偿：当前波数 × 3 + 5
+            m_gold += m_currentWave * 3 + 5;
         }
 
         // 清空棋盘上的死亡单位
@@ -582,13 +673,68 @@ namespace synera
         }
     }
 
+    void GameManager::ApplySynergyBonuses()
+    {
+        const auto& synergies = m_synergySystem.GetActiveSynergies();
+        if (synergies.empty())
+            return;
+
+        // 对棋盘上每个己方单位，根据其羁绊叠加加成
+        for (int r = 0; r < m_board.GetRows(); ++r)
+        {
+            for (int c = 0; c < m_board.GetCols(); ++c)
+            {
+                auto unit = m_board.GetOccupant(Position(r, c));
+                if (!unit || unit->GetOwner() != Owner::PlayerCtrl)
+                    continue;
+
+                float atkMul = 1.0f;
+                float hpMul = 1.0f;
+                int rangeBonus = 0;
+
+                for (auto& info : synergies)
+                {
+                    if (!unit->HasTrait(info.trait))
+                        continue;
+
+                    bool isT2 = (info.activeThreshold >= SYNERGY_THRESHOLD_2);
+
+                    // 各羁绊专属效果（T1=低档, T2=高档）
+                    if (info.trait == "人类")        atkMul += isT2 ? 0.25f : 0.10f;
+                    else if (info.trait == "战士")   hpMul  += isT2 ? 0.25f : 0.10f;
+                    else if (info.trait == "兽人")   atkMul += isT2 ? 0.25f : 0.12f;
+                    else if (info.trait == "精灵")   atkMul += isT2 ? 0.20f : 0.08f;
+                    else if (info.trait == "远程")   rangeBonus += isT2 ? 2 : 1;
+                    else if (info.trait == "法师")   atkMul += isT2 ? 0.25f : 0.12f;
+                    else if (info.trait == "骑士")   hpMul  += isT2 ? 0.25f : 0.12f;
+                    else if (info.trait == "治疗")   { atkMul += isT2 ? 0.15f : 0.08f; hpMul += isT2 ? 0.15f : 0.08f; }
+                    else if (info.trait == "刺客")   atkMul += isT2 ? 0.30f : 0.15f;
+                    else if (info.trait == "侍从")   hpMul  += isT2 ? 0.20f : 0.10f;
+                }
+
+                if (atkMul != 1.0f || hpMul != 1.0f || rangeBonus != 0)
+                {
+                    unit->ApplySynergyBuff(atkMul, hpMul, rangeBonus);
+                }
+            }
+        }
+    }
+
     void GameManager::NextWave()
     {
+        // 如果游戏已结束（HP=0），不再前进波次
+        if (m_gameOver)
+            return;
+
         m_currentWave++;
 
-        if (m_currentWave > 10)
+        if (m_currentWave > MAX_WAVES)
         {
-            // 通关 — 保持当前状态，UI 可显示胜利信息
+            // 走完所有波次
+            if (m_lastCombatResult)
+                m_gameWon = true;   // 最后一波胜利 → 通关
+            else
+                m_gameOver = true;  // 最后一波失败 → 游戏结束
             m_phase = GamePhase::Preparation;
             return;
         }
