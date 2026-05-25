@@ -79,6 +79,14 @@ namespace synera
         void AddGold(int amount);        // 增加金币
         int GetPlayerHp() const;
 
+        // ---- 棋盘人数限制 ----
+        int GetMaxDeploySlots() const;           // 当前最大可部署人数
+        int GetPurchasedSlots() const { return m_purchasedSlots; }
+        int GetCurrentDeployedCount() const;     // 当前棋盘上我方单位数
+        bool IsSlotLimitReached() const;         // 是否已达上限
+        int GetSlotPurchaseCost() const;         // 当前购买一个席位所需金币
+        bool PurchaseSlot();                     // 尝试购买一个席位
+
         // ---- 全局 Getter ----
         const std::vector<std::shared_ptr<Unit>>& GetAllPlayerUnits() const;
 
@@ -99,6 +107,7 @@ namespace synera
         int m_currentWave = 1;
         int m_gold = 0;
         int m_playerHp = 100;        // 玩家总血量（战败扣血）
+        int m_purchasedSlots = 0;    // 已购买的额外棋盘席位（永久）
 
         // ---- 单位集合 ----
         std::vector<std::shared_ptr<Unit>> m_playerUnits;   // 玩家所有单位
@@ -106,6 +115,9 @@ namespace synera
 
         // ---- 装备背包 ----
         std::vector<Equipment> m_equipmentInventory;
+
+        // ---- 战斗事件缓存（UI 特效用） ----
+        std::vector<AttackEvent> m_recentAttackEvents;
 
         // ---- 战斗结果 ----
         bool m_lastCombatResult = false;
@@ -116,6 +128,9 @@ namespace synera
         bool GetLastCombatResult() const { return m_lastCombatResult; }
         bool IsGameOver() const { return m_gameOver; }
         bool IsGameWon() const { return m_gameWon; }
+
+        // ---- 攻击事件（供 UI 渲染战斗特效） ----
+        const std::vector<AttackEvent>& GetRecentAttackEvents() const { return m_recentAttackEvents; }
 
         // ---- 内部函数 ----
         // #TODO: 战斗结束后的处理（扣血、发放金币、掉落装备）
@@ -129,5 +144,8 @@ namespace synera
 
         // 战后重置己方单位：按血量排序在我方半场首行排开
         void ResetPlayerUnitsAfterCombat();
+
+        // 战败后：将越界的敌方存活单位移回敌方半场首行
+        void RepositionSurvivingEnemies();
     };
 }

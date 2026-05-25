@@ -9,6 +9,14 @@
 
 namespace synera
 {
+    // 攻击事件：每帧记录给 UI 层渲染攻击特效
+    struct AttackEvent {
+        int attackerRow = 0, attackerCol = 0;
+        int targetRow = 0, targetCol = 0;
+        int damage = 0;
+        bool isPlayerAttacker = false;
+    };
+
     // 战斗系统：管理 PvE 自动战斗循环。
     // 负责单位状态机转换（Idle → Moving → Attacking → Casting → Dead）、
     // 寻路、攻击、技能施法等核心战斗逻辑。
@@ -29,6 +37,11 @@ namespace synera
 
         // ---- 战斗状态 ----
         bool IsCombatActive() const;
+
+        // ---- 攻击事件（供 UI 渲染特效） ----
+        const std::vector<AttackEvent>& GetAttackEvents() const { return m_attackEvents; }
+        void ClearAttackEvents() { m_attackEvents.clear(); }
+        void RecordAttackEvent(const AttackEvent& evt) { m_attackEvents.push_back(evt); }
 
     private:
         // ---- 单位管理 ----
@@ -57,6 +70,9 @@ namespace synera
         // ---- 超时保护 ----
         int m_combatFrameCount = 0;
         static constexpr int MAX_COMBAT_FRAMES = 3000;  // ~30s at 100fps
+
+        // ---- 攻击事件缓存（每帧清空） ----
+        std::vector<AttackEvent> m_attackEvents;
 
         // ---- 引用 ----
         Board& m_board;

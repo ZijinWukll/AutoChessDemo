@@ -94,23 +94,23 @@ namespace synera
             --m_attackCooldown;
     }
 
+    int Unit::GetMoveCooldown() const { return m_moveCooldown; }
+    void Unit::SetMoveCooldown(int cd) { m_moveCooldown = std::max(0, cd); }
+    bool Unit::IsMoveReady() const { return m_moveCooldown <= 0 && IsAlive(); }
+    void Unit::TickMoveCooldown()
+    {
+        if (m_moveCooldown > 0)
+            --m_moveCooldown;
+    }
+
     // ========== 阶段二：伤害计算 ==========
 
     int Unit::CalculateDamage(DamageType type) const
     {
         (void)type;
 
-        double baseDamage = static_cast<double>(m_atk);
-
-        double starMul = 1.0;
-        switch (m_starLevel) {
-            case StarLevel::One:   starMul = 1.0; break;
-            case StarLevel::Two:   starMul = 2.0; break;
-            case StarLevel::Three: starMul = 3.0; break;
-            default:               starMul = 1.0; break;
-        }
-
-        double dmg = baseDamage * starMul;
+        double dmg = static_cast<double>(m_atk);
+        // m_atk 已通过 ApplyStarBonus() 包含星级倍率，不再重复乘算
 
         constexpr double critRate = 0.1;
         constexpr double critMul = 2.0;
@@ -170,12 +170,14 @@ namespace synera
 
     void Unit::ApplyStarBonus()
     {
+        // 主流自走棋设计：2★ ≈ 1★×1.8（略低于3个1星总和），3★ ≈ 2★×2.0（略低于3个2星总和）
+        // 这样高星单位省人口、堆质量，但纯攻击总和不如同名低星×3
         double starMul = 1.0;
         switch (m_starLevel)
         {
         case StarLevel::One:   starMul = 1.0; break;
-        case StarLevel::Two:   starMul = 2.0; break;
-        case StarLevel::Three: starMul = 3.0; break;
+        case StarLevel::Two:   starMul = 1.8; break;
+        case StarLevel::Three: starMul = 3.6; break;
         }
 
         m_atk = static_cast<int>(std::round(static_cast<double>(m_baseAtk) * starMul));

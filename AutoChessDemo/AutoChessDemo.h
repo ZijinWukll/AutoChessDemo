@@ -45,6 +45,7 @@ private slots:
     // ---- 按钮事件 ----
     void OnStartCombatClicked();        // 开始战斗
     void OnRefreshShopClicked();        // 刷新商店
+    void OnBuySlotClicked();            // 购买棋盘席位
 
 private:
     // ---- UI 组件 ----
@@ -62,11 +63,17 @@ private:
     QLabel* m_phaseLabel = nullptr;     // 显示当前阶段
     QLabel* m_synergyLabel = nullptr;   // 显示激活的羁绊
     QLabel* m_tipLabel = nullptr;       // 操作提示
+    QLabel* m_slotLabel = nullptr;      // 显示棋子席位
+    QPushButton* m_buySlotBtn = nullptr; // 购买席位按钮
 
     QTimer* m_timer = nullptr;          // 60fps 定时器
 
     // ---- 拖拽预览 ----
     QLabel* m_dragPreview = nullptr;    // 跟随鼠标的浮动单位预览
+    QPixmap m_dragPreviewCache;         // 缓存的拖拽预览图（避免每帧重绘）
+    bool m_dragPreviewOverBoard = false; // 上一帧是否在棋盘上方（检测变化）
+    bool m_dragPreviewValidSpot = false; // 上一帧放置位是否有效
+    static constexpr int DRAG_PREVIEW_SIZE = 96;
 
     // ---- 拖拽状态 ----
     struct DragInfo {
@@ -96,6 +103,7 @@ private:
     void SetupStartScreen();            // 初始化开始界面
     void SetupGameUI();                 // 初始化游戏界面（原 SetupUI 改名）
 
+    void RebuildDragPreview(bool overBoard, bool validSpot); // 构建拖拽预览缓存
     void UpdateDragPreview(const QPoint& globalPos);  // 更新拖拽预览位置
     void HideDragPreview();
     void UpdateBoardHover(const QPoint& globalPos);   // 更新棋盘悬停高亮

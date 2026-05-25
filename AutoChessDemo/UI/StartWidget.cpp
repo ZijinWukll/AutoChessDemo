@@ -67,7 +67,7 @@ namespace synera
         layout->addStretch(1);
 
         // 版本信息
-        QLabel* versionLabel = new QLabel("v3.1", this);
+        QLabel* versionLabel = new QLabel("v4.0", this);
         versionLabel->setStyleSheet("color: #605878; font-size: 11px; padding: 8px;");
         versionLabel->setAlignment(Qt::AlignCenter);
         layout->addWidget(versionLabel, 0, Qt::AlignCenter);
@@ -233,7 +233,7 @@ namespace synera
     {
         QDialog* dialog = new QDialog(this);
         dialog->setWindowTitle("玩法介绍");
-        dialog->setFixedSize(520, 460);
+        dialog->setFixedSize(540, 520);
         dialog->setStyleSheet(
             "QDialog {"
             "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
@@ -273,20 +273,26 @@ namespace synera
 <p>单位自动寻路、攻击、施法。胜利得金币，失败扣血（HP=0 则游戏结束）。</p>
 
 <h2>经济系统</h2>
-<p>胜利：<b>波数 × 2 + 8</b> 金币 | 失败补偿：<b>波数 × 2 + 5</b> 金币<br>
+<p>胜利金币：前 10 轮 <b>波数 × 2</b>，第 11 轮起 <b>波数 × 2 + 5</b><br>
+失败补偿：<b>波数 × 2 + 5</b> 金币<br>
 扣血：<b>波数 × 4</b> | 胜利回血：<b>波数 × 2</b>（HP≠100 时）</p>
 
 <h2>合星</h2>
-<p><b>3 个同名 1★ → 2★</b>（属性 ×2.0）<br>
-<b>3 个同名 2★ → 3★</b>（属性 ×3.0）</p>
+<p><b>3 个同名 1★ → 2★</b>（属性 ×1.8）<br>
+<b>3 个同名 2★ → 3★</b>（属性 ×3.6）</p>
 
 <h2>羁绊</h2>
 <p>同羁绊 ≥2 激活一档、≥4 激活二档，战斗前为全队加属性。<br>
 共 10 种羁绊：人类、战士、兽人、精灵、远程、法师、骑士、治疗、刺客、侍从。</p>
 
+<h2>棋盘席位</h2>
+<p>前 3 波最多部署 <b>8 人</b>。第 4 波起可购买额外席位：<br>
+第 4-9 波：<b>5 金币/席位</b> | 第 10 波起：<b>10 金币/席位</b><br>
+购买后永久提升部署上限（右上角显示当前席位）。</p>
+
 <h2>操作</h2>
 <p>点击商店卡片 → 确认购买 | 拖拽部署/撤回<br>
-右键备战区快速出售 | 前 2 次刷新免费，之后递增 1 金币</p>
+右键备战区快速出售 | 第 1 次刷新免费，之后递增 1 金币</p>
 )");
 
         layout->addWidget(text);

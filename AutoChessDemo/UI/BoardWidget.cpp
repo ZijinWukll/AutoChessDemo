@@ -134,6 +134,51 @@ namespace synera
             needUpdate = true;
         }
 
+        // ---- 战斗攻击特效 ----
+        // 从 GameManager 读取本帧攻击事件 → 生成闪光效果
+        const auto& events = m_gameManager.GetRecentAttackEvents();
+        if (!events.empty())
+        {
+            int cellW = width() / m_gameManager.GetBoard().GetCols();
+            int cellH = height() / m_gameManager.GetBoard().GetRows();
+            float maxRadius = qMin(cellW, cellH) * 0.7f;
+
+            for (auto& evt : events)
+            {
+                // 攻击方闪光（位置：攻击者格子中心）
+                QPointF atkPos = QPointF(
+                    evt.attackerCol * cellW + cellW / 2.0f,
+                    evt.attackerRow * cellH + cellH / 2.0f
+                );
+                m_attackFlashes.push_back({
+                    atkPos, 0.0f,
+                    evt.isPlayerAttacker ? QColor(80, 160, 255) : QColor(255, 100, 100),
+                    false, maxRadius
+                });
+
+                // 受击方红色闪光（位置：目标格子中心）
+                QPointF hitPos = QPointF(
+                    evt.targetCol * cellW + cellW / 2.0f,
+                    evt.targetRow * cellH + cellH / 2.0f
+                );
+                m_attackFlashes.push_back({
+                    hitPos, 0.0f, QColor(255, 60, 60), true, maxRadius * 0.6f
+                });
+            }
+            needUpdate = true;
+        }
+
+        // 闪光特效更新（快速淡出）
+        const float flashFadeSpeed = 0.12f;  // ≈ 8 帧 (80ms) 全部淡出
+        for (auto it = m_attackFlashes.begin(); it != m_attackFlashes.end(); )
+        {
+            it->progress += flashFadeSpeed;
+            if (it->progress >= 1.0f)
+                it = m_attackFlashes.erase(it);
+            else
+                ++it;
+        }
+
         if (needUpdate)
             update();
     }
@@ -249,7 +294,8 @@ namespace synera
         // ===== 第4层：拖拽放置区指示 =====
         if (m_dragZoneVisible)
         {
-            // 己方半场：柔和绿覆盖 + 淡边框
+            bool slotFull = m_gameManager.IsSlotLimitReached();
+            // 己方半场：人数未满 → 柔和绿覆盖；已满 → 红色(如敌方半场)
             for (int r = halfRow; r < rows; ++r)
                 for (int c = 0; c < cols; ++c)
                 {
@@ -257,14 +303,30 @@ namespace synera
                     if (!board.IsOccupied(pos))
                     {
                         QRect cr(c * cellW, r * cellH, cellW, cellH);
-                        painter.fillRect(cr, QColor(80, 200, 120, 20));
-                        painter.setPen(QPen(QColor(80, 200, 120, 100), 2));
-                        painter.drawRoundedRect(cr.adjusted(3, 3, -3, -3), 6, 6);
-                        // 中心十字标记
-                        painter.setPen(QPen(QColor(80, 200, 120, 50), 1));
-                        int m = 6, cx = cr.center().x(), cy = cr.center().y();
-                        painter.drawLine(cx - m, cy, cx + m, cy);
-                        painter.drawLine(cx, cy - m, cx, cy + m);
+                        if (slotFull)
+                        {
+                            // 红色不可放置
+                            painter.fillRect(cr, QColor(200, 60, 60, 25));
+                            painter.setPen(QPen(QColor(200, 60, 60, 120), 2));
+                            painter.drawRoundedRect(cr.adjusted(3, 3, -3, -3), 6, 6);
+                            // ✗ 标记
+                            painter.setPen(QPen(QColor(200, 60, 60, 60), 2));
+                            int cx = cr.center().x(), cy = cr.center().y(), m = 7;
+                            painter.drawLine(cx - m, cy - m, cx + m, cy + m);
+                            painter.drawLine(cx + m, cy - m, cx - m, cy + m);
+                        }
+                        else
+                        {
+                            // 绿色可放置
+                            painter.fillRect(cr, QColor(80, 200, 120, 20));
+                            painter.setPen(QPen(QColor(80, 200, 120, 100), 2));
+                            painter.drawRoundedRect(cr.adjusted(3, 3, -3, -3), 6, 6);
+                            // 中心十字标记
+                            painter.setPen(QPen(QColor(80, 200, 120, 50), 1));
+                            int m = 6, cx = cr.center().x(), cy = cr.center().y();
+                            painter.drawLine(cx - m, cy, cx + m, cy);
+                            painter.drawLine(cx, cy - m, cx, cy + m);
+                        }
                     }
                 }
             // 敌方半场：暗红覆盖（表示不可放置）
@@ -381,7 +443,49 @@ namespace synera
             DrawUnitAt(painter, ma.unit, cellRect, s, s);
         }
 
-        // ===== 第9层：部署空位提示 =====
+        // ===== 第9层：攻击闪光特效 =====
+        for (auto& flash : m_attackFlashes)
+        {
+            float alpha = 1.0f - flash.progress;
+            float radius = flash.maxRadius * (0.3f + flash.progress * 0.7f);
+            QColor col = flash.color;
+            col.setAlpha(static_cast<int>(80 * alpha));
+
+            if (flash.isHit)
+            {
+                // 受击：红色十字闪光
+                int crossLen = static_cast<int>(radius * 0.6f);
+                QPointF c = flash.pos;
+                painter.setPen(QPen(QColor(255, 60, 60, static_cast<int>(120 * alpha)), 3));
+                painter.drawLine(QPointF(c.x() - crossLen, c.y()), QPointF(c.x() + crossLen, c.y()));
+                painter.drawLine(QPointF(c.x(), c.y() - crossLen), QPointF(c.x(), c.y() + crossLen));
+                // 外圈光环
+                painter.setPen(QPen(QColor(255, 80, 80, static_cast<int>(60 * alpha)), 2));
+                painter.setBrush(Qt::NoBrush);
+                painter.drawEllipse(c, radius * 0.5f, radius * 0.5f);
+            }
+            else
+            {
+                // 攻击方：辐射光爆
+                QRadialGradient grad(flash.pos, radius);
+                QColor inner = col;
+                inner.setAlpha(static_cast<int>(60 * alpha));
+                grad.setColorAt(0, inner);
+                QColor outer = col;
+                outer.setAlpha(static_cast<int>(15 * alpha));
+                grad.setColorAt(0.6f, outer);
+                grad.setColorAt(1, QColor(0, 0, 0, 0));
+                painter.setBrush(grad);
+                painter.setPen(Qt::NoPen);
+                painter.drawEllipse(flash.pos, radius, radius);
+
+                // 中心光点
+                painter.setBrush(QColor(255, 255, 255, static_cast<int>(100 * alpha)));
+                painter.drawEllipse(flash.pos, radius * 0.12f, radius * 0.12f);
+            }
+        }
+
+        // ===== 第10层：部署空位提示 =====
         if (m_gameManager.GetCurrentPhase() == GamePhase::Preparation)
         {
             // 在空的己方半场格子上画淡绿色边框表示可部署

@@ -16,9 +16,13 @@ namespace synera
     // ---- 阶段一：备战区 ----
     constexpr size_t BENCH_CAPACITY = 8;
 
+    // ---- 棋盘人数限制 ----
+    constexpr int DEFAULT_SLOT_LIMIT = 8;           // 默认棋盘最大部署人数
+
     // ---- 阶段二：战斗 ----
     constexpr int FPS = 60;                         // 游戏帧率
-    constexpr int DEFAULT_ATTACK_COOLDOWN = 20;     // 攻击间隔帧数（约 0.33 秒）
+    constexpr int DEFAULT_ATTACK_COOLDOWN = 35;     // 攻击间隔帧数（100fps ≈ 0.35 秒/次，前期约 5s 打完一轮）
+    constexpr int MOVE_COOLDOWN = 8;                // 移动冷却帧数（100fps ≈ 12 格/秒，走位仍可见）
     constexpr int MAX_MANA = 60;                    // 默认最大法力值
     constexpr int MANA_PER_ATTACK = 10;             // 每次普攻回复法力
     constexpr int MANA_PER_HIT = 10;                // 每次受击回复法力

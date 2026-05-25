@@ -220,6 +220,11 @@ namespace synera
 
         case UnitState::Moving:
         {
+            // 移动冷却 — 控制走位速度，让玩家看清每一步移动
+            unit->TickMoveCooldown();
+            if (!unit->IsMoveReady())
+                break;
+            unit->SetMoveCooldown(MOVE_COOLDOWN);
             MoveTowardEnemy(unit);
             break;
         }
@@ -288,6 +293,14 @@ namespace synera
         // 计算伤害并造成伤害
         int damage = unit->CalculateDamage(DamageType::Physical);
         target->TakeDamage(damage);
+
+        // 记录攻击事件（供 UI 渲染攻击特效）
+        m_attackEvents.push_back({
+            unit->GetGridRow(), unit->GetGridCol(),
+            target->GetGridRow(), target->GetGridCol(),
+            damage,
+            unit->GetOwner() == Owner::PlayerCtrl
+        });
 
         // 攻击方回复法力
         unit->AddMana(MANA_PER_ATTACK);

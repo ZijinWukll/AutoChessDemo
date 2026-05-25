@@ -64,16 +64,15 @@ namespace synera
 
     int ShopSystem::GetRefreshCost() const
     {
-        // 前2次免费，第3次1金币，第4次2金币...第n次n-2金币
-        if (m_refreshCount < 2)
+        // 第1次免费，第2次2金币，第3次3金币...第N次N金币
+        if (m_refreshCount == 0)
             return 0;
-        return m_refreshCount - 1;
+        return m_refreshCount + 1;
     }
 
     int ShopSystem::GetFreeRefreshesRemaining() const
     {
-        int remaining = 2 - m_refreshCount;
-        return remaining > 0 ? remaining : 0;
+        return (m_refreshCount == 0) ? 1 : 0;
     }
 
     int ShopSystem::GetRefreshCount() const { return m_refreshCount; }

@@ -22,6 +22,7 @@ namespace synera
         m_lastCombatResult = false;
         m_gameOver = false;
         m_gameWon = false;
+        m_purchasedSlots = 0;
 
         // 生成第一波敌方暂存
         m_enemyWave = m_aiController.GenerateEnemyWave(1);
@@ -66,6 +67,7 @@ namespace synera
                     unit->ResetMana();
                     unit->SetState(UnitState::Idle);
                     unit->SetAttackCooldown(0);
+                    unit->SetMoveCooldown(0);
                 }
             }
 
@@ -125,9 +127,16 @@ namespace synera
     {
         (void)deltaTime; // 暂未使用 deltaTime，帧率由定时器保证
 
+        // 清空上一帧攻击事件
+        m_recentAttackEvents.clear();
+
         if (m_phase == GamePhase::Combat)
         {
             m_combatSystem.Update();
+
+            // 取出本帧的攻击事件供 UI 渲染
+            m_recentAttackEvents = m_combatSystem.GetAttackEvents();
+            m_combatSystem.ClearAttackEvents();
 
             if (!m_combatSystem.IsCombatActive())
             {
@@ -184,6 +193,10 @@ namespace synera
     bool GameManager::DeployUnit(std::shared_ptr<Unit> unit, int row, int col)
     {
         if (m_phase != GamePhase::Preparation)
+            return false;
+
+        // 检查人数上限
+        if (IsSlotLimitReached())
             return false;
 
         // 在备战区找到该单位
@@ -614,21 +627,77 @@ namespace synera
 
     const std::vector<std::shared_ptr<Unit>>& GameManager::GetAllPlayerUnits() const
     {
+
         return m_playerUnits;
+    }
+
+    // ========== 棋盘人数限制 ==========
+
+    int GameManager::GetMaxDeploySlots() const
+    {
+        return DEFAULT_SLOT_LIMIT + m_purchasedSlots;
+    }
+
+    int GameManager::GetCurrentDeployedCount() const
+    {
+        int count = 0;
+        for (int r = 0; r < m_board.GetRows(); ++r)
+            for (int c = 0; c < m_board.GetCols(); ++c)
+            {
+                auto u = m_board.GetOccupant(Position(r, c));
+                if (u && u->GetOwner() == Owner::PlayerCtrl)
+                    ++count;
+            }
+        return count;
+    }
+
+    bool GameManager::IsSlotLimitReached() const
+    {
+        return GetCurrentDeployedCount() >= GetMaxDeploySlots();
+    }
+
+    int GameManager::GetSlotPurchaseCost() const
+    {
+        // 第 4-9 波：5 金币；第 10 波起：10 金币
+        return (m_currentWave >= 10) ? 10 : 5;
+    }
+
+    bool GameManager::PurchaseSlot()
+    {
+        // 前三波不允许购买
+        if (m_currentWave < 4)
+            return false;
+        if (m_phase != GamePhase::Preparation)
+            return false;
+
+        int cost = GetSlotPurchaseCost();
+        if (m_gold < cost)
+            return false;
+
+        m_gold -= cost;
+        ++m_purchasedSlots;
+        return true;
     }
 
     // ========== 内部函数 ==========
 
     void GameManager::OnCombatEnd(bool playerWon)
     {
+        // 防重入：游戏已结束则不再结算（避免 Update 循环调用）
+        if (m_gameOver || m_gameWon)
+        {
+            m_phase = GamePhase::Preparation;
+            return;
+        }
+
         m_lastCombatResult = playerWon;
 
         if (playerWon)
         {
-            // 胜利奖励：当前波数 × 4 + 5
+            // 胜利奖励：当前波数 + 10
             {
                 int wave = m_currentWave;
-                int reward = wave * 2 + 8;
+                int reward = wave * 2 + (wave >= 11 ? 5 : 0);
                 m_gold += reward;
 
                 // HP 恢复：HP != 100 时回复 当前波数 × 2
@@ -662,6 +731,10 @@ namespace synera
             m_gold += m_currentWave * 2 + 5;
         }
 
+        // 战败时：将越界的敌方存活单位移回敌方半场首行
+        if (!playerWon)
+            RepositionSurvivingEnemies();
+
         // 清空棋盘上的死亡单位
         for (int r = 0; r < m_board.GetRows(); ++r)
             for (int c = 0; c < m_board.GetCols(); ++c)
@@ -675,6 +748,50 @@ namespace synera
         ResetPlayerUnitsAfterCombat();
 
         NextWave();
+    }
+
+    void GameManager::RepositionSurvivingEnemies()
+    {
+        // 收集我方半场所有存活的敌方单位
+        std::vector<std::shared_ptr<Unit>> invaders;
+        int halfRow = m_board.GetRows() / 2;
+        for (int r = halfRow; r < m_board.GetRows(); ++r)
+            for (int c = 0; c < m_board.GetCols(); ++c)
+            {
+                auto u = m_board.GetOccupant(Position(r, c));
+                if (u && u->GetOwner() == Owner::EnemyCtrl && u->IsAlive())
+                {
+                    invaders.push_back(u);
+                    m_board.RemoveUnit(Position(r, c));
+                }
+            }
+
+        if (invaders.empty())
+            return;
+
+        // 排序：近战在前（按最大HP降序→坦克顶前面），远程在后（按射程升序）
+        std::sort(invaders.begin(), invaders.end(),
+            [](const auto& a, const auto& b) {
+                bool aMelee = a->GetRange() <= 1;
+                bool bMelee = b->GetRange() <= 1;
+                if (aMelee != bMelee) return aMelee;
+                if (aMelee) return a->GetMaxHp() > b->GetMaxHp();
+                return a->GetRange() < b->GetRange();
+            });
+
+        // 放置在敌方半场首行（靠近中线的那一行），从左到右排列
+        int targetRow = halfRow - 1;
+        int col = 0;
+        for (auto& u : invaders)
+        {
+            while (col < m_board.GetCols() && m_board.IsOccupied(Position(targetRow, col)))
+                ++col;
+            if (col >= m_board.GetCols())
+                break;
+            m_board.PlaceUnit(u, Position(targetRow, col));
+            u->SetGridPosition(targetRow, col);
+            ++col;
+        }
     }
 
     void GameManager::ResetPlayerUnitsAfterCombat()
@@ -782,9 +899,12 @@ namespace synera
 
     void GameManager::NextWave()
     {
-        // 如果游戏已结束（HP=0），不再前进波次
+        // 如果游戏已结束（HP=0），切回准备阶段让 UI 检测战败并显示结果
         if (m_gameOver)
+        {
+            m_phase = GamePhase::Preparation;
             return;
+        }
 
         m_currentWave++;
 

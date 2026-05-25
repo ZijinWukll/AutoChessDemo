@@ -57,6 +57,11 @@ namespace synera
         bool IsAttackReady() const;             // 攻击冷却是否就绪
         void TickAttackCooldown();              // 每帧减少冷却
 
+        int GetMoveCooldown() const;
+        void SetMoveCooldown(int cd);
+        void TickMoveCooldown();
+        bool IsMoveReady() const;
+
         // ---- 阶段二：攻击/施法 ----
         // #TODO: 计算实际造成的伤害（可考虑护甲/魔抗/羁绊加成）
         int CalculateDamage(DamageType type = DamageType::Physical) const;
@@ -99,6 +104,7 @@ namespace synera
         int m_maxMana = synera::MAX_MANA;
         UnitState m_state = UnitState::Idle;
         int m_attackCooldown = 0;           // 0 = 可攻击
+        int m_moveCooldown = 0;             // 0 = 可移动
 
         // ---- 位置记录 ----
         int m_gridRow = -1;

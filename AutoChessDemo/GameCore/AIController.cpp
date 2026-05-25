@@ -254,12 +254,22 @@ namespace synera
 
     float AIController::GetWaveMultiplier(int waveNumber) const
     {
-        // 平滑递增：每波 +8%，第 10 波后额外 +8%（原先是15%，跳跃太大）
+        // 基础递增：每波 +8%
         float base = 1.0f + (waveNumber - 1) * 0.08f;
         if (waveNumber >= 10)
             base *= 1.08f;
         if (waveNumber >= 13)
             base *= 1.1f;
-        return std::min(4.5f, base);
+
+        // 全面提升难度：前期+10%，中期+20%，后期+30%
+        float phaseMul = 1.0f;
+        if (waveNumber <= 5)
+            phaseMul = 1.10f;
+        else if (waveNumber <= 10)
+            phaseMul = 1.20f;
+        else
+            phaseMul = 1.30f;
+
+        return std::min(4.5f, base * phaseMul);
     }
 }

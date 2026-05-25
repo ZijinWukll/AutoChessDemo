@@ -27,6 +27,15 @@ namespace synera
         std::shared_ptr<Unit> unit;
     };
 
+    // 攻击闪光效果
+    struct AttackFlash {
+        QPointF pos;
+        float progress = 0.0f;      // 0→1 淡出
+        QColor color;               // 玩家=蓝, 敌方=红
+        bool isHit = false;         // hit 闪光更亮更短
+        float maxRadius = 0.0f;
+    };
+
     class BoardWidget : public QWidget
     {
         Q_OBJECT
@@ -64,6 +73,7 @@ namespace synera
 
         DeployAnim m_deployAnim;
         std::vector<MoveAnim> m_moveAnims;
+        std::vector<AttackFlash> m_attackFlashes;
         bool m_dragZoneVisible = false;
         int m_draggedUnitRow = -1;      // 棋盘拖拽时原位置（该处单位用半透明绘制）
         int m_draggedUnitCol = -1;
