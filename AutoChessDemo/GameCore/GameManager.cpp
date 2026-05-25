@@ -86,8 +86,8 @@ namespace synera
         int shopLevel = std::min(9, 1 + m_currentWave / 2);
         m_shopSystem.Refresh(shopLevel);
 
-        // 重置免费刷新次数
-        m_shopSystem.SetFreeRefreshes(FREE_REFRESH_PER_ROUND);
+        // 重置商店刷新计数
+        m_shopSystem.ResetRefreshCount();
 
         // 尝试合星
         TryMergeUnits();
@@ -568,7 +568,7 @@ namespace synera
             // 胜利奖励：当前波数 × 4 + 5
             {
                 int wave = m_currentWave;
-                int reward = wave * 4 + 5;
+                int reward = wave * 2 + 8;
                 m_gold += reward;
 
                 // HP 恢复：HP != 100 时回复 当前波数 × 2
@@ -599,7 +599,7 @@ namespace synera
             }
 
             // 失败补偿：当前波数 × 3 + 5
-            m_gold += m_currentWave * 3 + 5;
+            m_gold += m_currentWave * 2 + 5;
         }
 
         // 清空棋盘上的死亡单位

@@ -26,17 +26,19 @@ namespace synera
         // #TODO: 实现扣费逻辑
         std::shared_ptr<Unit> BuyUnit(int index);
 
-        // ---- 剩余免费刷新次数 ----
-        int GetFreeRefreshes() const;
-        void SetFreeRefreshes(int count);
-        void UseFreeRefresh();          // 消耗一次免费刷新
+        // ---- 刷新费用 ----
+        int GetRefreshCost() const;                  // 获取下次刷新所需金币（0=免费）
+        int GetFreeRefreshesRemaining() const;       // 剩余免费刷新次数
+        int GetRefreshCount() const;                 // 本回合已刷新次数
+        void RecordRefresh();                        // 记录一次刷新（内部计数+1）
+        void ResetRefreshCount();                    // 每回合重置刷新计数
 
         // ---- 商店数据 ----
         const std::vector<std::shared_ptr<Unit>>& GetShopUnits() const;
 
     private:
         std::vector<std::shared_ptr<Unit>> m_shopUnits;
-        int m_freeRefreshes = 1;
+        int m_refreshCount = 0;                      // 本回合已刷新次数
 
         // #TODO: 根据概率表随机生成一个单位
         //   1 费：70%, 2 费：25%, 3 费：5%

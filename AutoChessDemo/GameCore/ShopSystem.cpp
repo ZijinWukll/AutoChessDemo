@@ -62,12 +62,30 @@ namespace synera
         return unit;
     }
 
-    int ShopSystem::GetFreeRefreshes() const { return m_freeRefreshes; }
-    void ShopSystem::SetFreeRefreshes(int count) { m_freeRefreshes = std::max(0, count); }
-    void ShopSystem::UseFreeRefresh()
+    int ShopSystem::GetRefreshCost() const
     {
-        if (m_freeRefreshes > 0)
-            --m_freeRefreshes;
+        // 前2次免费，第3次1金币，第4次2金币...第n次n-2金币
+        if (m_refreshCount < 2)
+            return 0;
+        return m_refreshCount - 1;
+    }
+
+    int ShopSystem::GetFreeRefreshesRemaining() const
+    {
+        int remaining = 2 - m_refreshCount;
+        return remaining > 0 ? remaining : 0;
+    }
+
+    int ShopSystem::GetRefreshCount() const { return m_refreshCount; }
+
+    void ShopSystem::RecordRefresh()
+    {
+        ++m_refreshCount;
+    }
+
+    void ShopSystem::ResetRefreshCount()
+    {
+        m_refreshCount = 0;
     }
 
     const std::vector<std::shared_ptr<Unit>>& ShopSystem::GetShopUnits() const

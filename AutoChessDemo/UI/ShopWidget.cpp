@@ -85,7 +85,14 @@ namespace synera
         painter.setFont(tf);
 
         const auto& shop = m_gameManager.GetShop();
-        painter.drawText(10, 10, QString("💰 金币: %1").arg(m_gameManager.GetGold()));
+        int freeRefreshes = shop.GetFreeRefreshesRemaining();
+        int refreshCost = shop.GetRefreshCost();
+        QString refreshText;
+        if (freeRefreshes > 0)
+            refreshText = QString(" | 免费刷新: %1 次").arg(freeRefreshes);
+        else
+            refreshText = QString(" | 刷新: %1 金").arg(refreshCost);
+        painter.drawText(10, 10, QString("💰 金币: %1").arg(m_gameManager.GetGold()) + refreshText);
 
         // 分隔线 — 渐变
         {

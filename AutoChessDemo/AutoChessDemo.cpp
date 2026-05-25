@@ -298,7 +298,7 @@ void AutoChessDemo::SetupUI()
     btnLayout->addWidget(startCombatBtn);
 
     QPushButton* refreshBtn = new QPushButton("🔄 刷新商店", this);
-    refreshBtn->setToolTip("消耗 2 金币或使用免费刷新次数重新随机商店单位");
+    refreshBtn->setToolTip("前2次免费，之后逐次递增1金币重新随机商店单位");
     connect(refreshBtn, &QPushButton::clicked, this, &AutoChessDemo::OnRefreshShopClicked);
     btnLayout->addWidget(refreshBtn);
 
@@ -767,18 +767,32 @@ void AutoChessDemo::OnRefreshShopClicked()
         return;
 
     auto& shop = m_gameManager.GetShop();
-    // 优先使用免费刷新次数
-    if (shop.GetFreeRefreshes() > 0)
+    int cost = shop.GetRefreshCost();
+    if (cost > 0)
     {
-        shop.UseFreeRefresh();
-    }
-    else
-    {
-        // 消耗 2 金币刷新
-        if (m_gameManager.GetGold() < 2)
+        if (m_gameManager.GetGold() < cost)
+        {
+            QMessageBox msgBox(this);
+            msgBox.setWindowTitle("金币不足");
+            int refreshNum = shop.GetRefreshCount() + 1;  // 本次是第几次刷新
+            msgBox.setText(QString("第 %1 次刷新需要 %2 金币\n当前仅有 %3 金币")
+                .arg(refreshNum).arg(cost).arg(m_gameManager.GetGold()));
+            msgBox.setIcon(QMessageBox::Warning);
+            msgBox.setStyleSheet(
+                "QMessageBox { background-color: #1e1c2e; color: #d0d0e0; }"
+                "QMessageBox QLabel { color: #d0d0e0; font-size: 14px; padding: 12px; }"
+                "QPushButton { background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+                "    stop:0 #5a50a8, stop:1 #4a4080); color: white; border: none;"
+                "    border-radius: 6px; padding: 8px 32px; font-size: 13px; font-weight: bold;"
+                "    min-width: 80px; min-height: 28px; }"
+                "QPushButton:hover { background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+                "    stop:0 #6a60c0, stop:1 #5a50a0); }");
+            msgBox.exec();
             return;
-        m_gameManager.SpendGold(2);
+        }
+        m_gameManager.SpendGold(cost);
     }
+    shop.RecordRefresh();
 
     // 根据波次计算商店等级
     int shopLevel = std::min(9, 1 + m_gameManager.GetCurrentWave() / 2);

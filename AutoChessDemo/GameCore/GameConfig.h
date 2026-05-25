@@ -29,7 +29,6 @@ namespace synera
 
     // ---- 阶段三：商店 ----
     constexpr int SHOP_SIZE = 5;                    // 商店每回合刷新数量
-    constexpr int FREE_REFRESH_PER_ROUND = 1;       // 每回合免费刷新次数
     constexpr int MAX_SHOP_LEVEL = 9;               // 商店最高等级
 
     // ---- 阶段三：合星 ----
