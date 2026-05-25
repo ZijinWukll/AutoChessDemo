@@ -4,6 +4,7 @@
 #include <QTimer>
 #include <QLabel>
 #include <QSplitter>
+#include <QStackedWidget>
 #include <QMouseEvent>
 
 #include <QPushButton>
@@ -13,6 +14,7 @@
 #include "UI/BenchWidget.h"
 #include "UI/UnitInfoWidget.h"
 #include "UI/ShopWidget.h"
+#include "UI/StartWidget.h"
 
 using namespace synera;
 
@@ -86,8 +88,14 @@ private:
     std::shared_ptr<Unit> m_shopPreviewUnit;
     QPushButton* m_confirmPurchaseBtn = nullptr;
 
-    // ---- 初始化 UI 布局 ----
-    void SetupUI();
+    // ---- 开始界面 / 游戏界面切换 ----
+    QStackedWidget* m_stackedWidget = nullptr;
+    StartWidget* m_startWidget = nullptr;
+    QWidget* m_gameContainer = nullptr;
+    void OnStartGame();                 // 从开始界面进入游戏
+    void SetupStartScreen();            // 初始化开始界面
+    void SetupGameUI();                 // 初始化游戏界面（原 SetupUI 改名）
+
     void UpdateDragPreview(const QPoint& globalPos);  // 更新拖拽预览位置
     void HideDragPreview();
     void UpdateBoardHover(const QPoint& globalPos);   // 更新棋盘悬停高亮

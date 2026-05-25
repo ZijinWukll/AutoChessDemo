@@ -44,6 +44,9 @@
     <QtMoc Include="UI\ShopWidget.h">
       <Filter>Header Files</Filter>
     </QtMoc>
+    <QtMoc Include="UI\StartWidget.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AutoChessDemo.cpp">
@@ -95,6 +98,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="UI\ShopWidget.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\StartWidget.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

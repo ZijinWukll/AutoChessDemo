@@ -24,13 +24,12 @@ AutoChessDemo::AutoChessDemo(QWidget *parent)
     // 初始化游戏核心
     m_gameManager.Initialize();
 
-    // 构建 UI
-    SetupUI();
+    // 构建界面：先显示开始界面
+    SetupStartScreen();
 
-    // 启动游戏循环定时器（~100fps ≈ 10ms）
+    // 创建定时器（进入游戏后启动）
     m_timer = new QTimer(this);
     connect(m_timer, &QTimer::timeout, this, &AutoChessDemo::OnTick);
-    m_timer->start(10);
 
     setWindowTitle("Synera: Synergy Auto-Arena");
     resize(800, 850);
@@ -94,15 +93,9 @@ AutoChessDemo::AutoChessDemo(QWidget *parent)
         setWindowIcon(QIcon(iconPx));
     }
 
-    // 安装事件过滤器（用于拖拽预览和悬停高亮）
-    installEventFilter(this);
-    m_boardWidget->installEventFilter(this);
-    m_benchWidget->installEventFilter(this);
-    m_shopWidget->installEventFilter(this);
+    // 事件过滤器移至 SetupGameUI
 
-    setMouseTracking(true);
-    m_boardWidget->setMouseTracking(true);
-    m_benchWidget->setMouseTracking(true);
+    // MouseTracking 移至 SetupGameUI
 
     // 应用全局 QSS 暗色主题 — 现代光滑风格
     setStyleSheet(R"(
@@ -170,13 +163,48 @@ AutoChessDemo::~AutoChessDemo()
     m_timer->stop();
 }
 
-void AutoChessDemo::SetupUI()
+void AutoChessDemo::SetupStartScreen()
 {
-    // ---- 创建中央控件 ----
-    QWidget* centralWidget = new QWidget(this);
-    setCentralWidget(centralWidget);
+    // QStackedWidget 作为中央控件
+    m_stackedWidget = new QStackedWidget(this);
+    setCentralWidget(m_stackedWidget);
 
-    QVBoxLayout* mainLayout = new QVBoxLayout(centralWidget);
+    // 第 0 页：开始界面
+    m_startWidget = new synera::StartWidget(this);
+    m_stackedWidget->addWidget(m_startWidget);
+
+    // 第 1 页：游戏界面（占位，点击"开始游戏"后真正构建）
+    m_gameContainer = new QWidget(this);
+    m_stackedWidget->addWidget(m_gameContainer);
+
+    // 加载开始界面背景图
+    m_startWidget->SetBackgroundImage(":/AutoChessDemo/assets/ui/start_bg.png");
+
+    m_stackedWidget->setCurrentIndex(0);
+
+    connect(m_startWidget, &synera::StartWidget::StartGame, this, &AutoChessDemo::OnStartGame);
+}
+
+void AutoChessDemo::OnStartGame()
+{
+    if (m_stackedWidget->currentIndex() == 1)
+        return; // 已在游戏中
+
+    // 第一次进入：构建游戏 UI
+    if (m_gameContainer->layout() == nullptr)
+    {
+        SetupGameUI();
+        // 游戏 UI 就绪后启动循环定时器
+        m_timer->start(10);
+    }
+
+    m_stackedWidget->setCurrentIndex(1);
+}
+
+void AutoChessDemo::SetupGameUI()
+{
+    // 使用 m_gameContainer 作为游戏界面容器
+    QVBoxLayout* mainLayout = new QVBoxLayout(m_gameContainer);
     mainLayout->setContentsMargins(12, 10, 12, 10);
     mainLayout->setSpacing(8);
 
@@ -314,6 +342,16 @@ void AutoChessDemo::SetupUI()
     m_tipLabel->setText(
         "🎮 欢迎来到 Synera！ 备战阶段： ① 从商店点击英雄查看详情 → 确认购买  "
         "② 从备战区拖拽英雄到棋盘布阵 ③ 右键备战区出售英雄 ④ 点击「开始战斗」迎敌");
+
+    // 安装事件过滤器（拖拽预览和悬停高亮）
+    installEventFilter(this);
+    m_boardWidget->installEventFilter(this);
+    m_benchWidget->installEventFilter(this);
+    m_shopWidget->installEventFilter(this);
+
+    setMouseTracking(true);
+    m_boardWidget->setMouseTracking(true);
+    m_benchWidget->setMouseTracking(true);
 }
 
 // ========== 游戏循环 ==========
@@ -720,6 +758,28 @@ void AutoChessDemo::OnConfirmPurchase()
         msgBox.setWindowTitle("金币不足");
         msgBox.setText(QString("购买 %1 需要 %2 金币\n当前仅有 %3 金币")
             .arg(QString::fromStdString(unitName)).arg(cost).arg(m_gameManager.GetGold()));
+        msgBox.setIcon(QMessageBox::Warning);
+        msgBox.setStyleSheet(
+            "QMessageBox { background-color: #1e1c2e; color: #d0d0e0; }"
+            "QMessageBox QLabel { color: #d0d0e0; font-size: 14px; padding: 12px; }"
+            "QPushButton { background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+            "    stop:0 #5a50a8, stop:1 #4a4080); color: white; border: none;"
+            "    border-radius: 6px; padding: 8px 32px; font-size: 13px; font-weight: bold;"
+            "    min-width: 80px; min-height: 28px; }"
+            "QPushButton:hover { background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+            "    stop:0 #6a60c0, stop:1 #5a50a0); }");
+        msgBox.exec();
+        return;
+    }
+
+    // 检查备战区是否已满（且不可通过购买触化合星）
+    if (m_gameManager.GetBench().IsFull() &&
+        !m_gameManager.CanMergeOnPurchase(unitName, synera::StarLevel::One))
+    {
+        QMessageBox msgBox(this);
+        msgBox.setWindowTitle("备战区已满");
+        msgBox.setText(QString("备战区已满，无法购买 %1\n请先在备战区腾出空位（拖拽上场或右键出售）")
+            .arg(QString::fromStdString(unitName)));
         msgBox.setIcon(QMessageBox::Warning);
         msgBox.setStyleSheet(
             "QMessageBox { background-color: #1e1c2e; color: #d0d0e0; }"

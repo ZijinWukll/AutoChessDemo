@@ -271,6 +271,27 @@ namespace synera
 
     ShopSystem& GameManager::GetShop() { return m_shopSystem; }
 
+    bool GameManager::CanMergeOnPurchase(const std::string& name, StarLevel star) const
+    {
+        int count = 0;
+        // 统计棋盘上同名同星玩家单位
+        for (int r = 0; r < m_board.GetRows(); ++r)
+            for (int c = 0; c < m_board.GetCols(); ++c)
+            {
+                auto u = m_board.GetOccupant(Position(r, c));
+                if (u && u->GetOwner() == Owner::PlayerCtrl && u->GetName() == name && u->GetStarLevel() == star)
+                    ++count;
+            }
+        // 统计备战区同名同星单位
+        for (size_t i = 0; i < m_bench.GetCapacity(); ++i)
+        {
+            auto u = m_bench.GetUnit(i);
+            if (u && u->GetName() == name && u->GetStarLevel() == star)
+                ++count;
+        }
+        return count >= 2;  // 已有2个同星，买1个变3个即可合星
+    }
+
     void GameManager::BuyUnitFromShop(int index)
     {
         if (m_phase != GamePhase::Preparation)
@@ -292,18 +313,26 @@ namespace synera
         if (m_gold < cost)
             return;
 
-        // 先检查备战区空位，满了则尝试合星腾空间
+        // 备战区满时判断：购买后触化合星腾空间 → 跳过拦截
+        bool pendingMerge = false;
         if (m_bench.IsFull())
         {
-            TryMergeUnits();
-            if (m_bench.IsFull())
-                return;  // 合星后仍然满 → 放弃购买
+            if (CanMergeOnPurchase(name, shopUnits[index]->GetStarLevel()))
+            {
+                pendingMerge = true;
+            }
+            else
+            {
+                TryMergeUnits();
+                if (m_bench.IsFull())
+                    return;
+            }
         }
 
         // 全部检查通过，从商店取走单位
         auto unit = m_shopSystem.BuyUnit(index);
         if (!unit)
-            return;  // 单位已被买走（极低概率），不扣金币
+            return;
 
         // 再次检查：取走的单位名称应与计算费用的名称一致
         int actualCost = 1;
@@ -313,7 +342,38 @@ namespace synera
         else if (actualName == "刺客" || actualName == "狂战士" || actualName == "狙击手")
             actualCost = 3;
 
-        m_bench.AddUnit(unit);
+        // 备战区有空位 → 直接放入
+        if (!pendingMerge)
+        {
+            m_bench.AddUnit(unit);
+        }
+        else
+        {
+            // 备战区满但购买后可合星 → 临时放到棋盘首个空位，合星系统会处理
+            bool placed = false;
+            for (int r = 0; r < m_board.GetRows(); ++r)
+            {
+                for (int c = 0; c < m_board.GetCols(); ++c)
+                {
+                    Position p(r, c);
+                    if (m_board.IsInBounds(p) && !m_board.IsOccupied(p))
+                    {
+                        m_board.PlaceUnit(unit, p);
+                        unit->SetGridPosition(r, c);
+                        placed = true;
+                        break;
+                    }
+                }
+                if (placed) break;
+            }
+            // 棋盘也无空位（极低概率），退款
+            if (!placed)
+            {
+                m_gold -= actualCost;  // 正常扣钱，但 TryMergeUnits 会把所有单位重新整理
+                // TryMergeUnits 会重置棋盘+备战区，重新分配，所以不放棋盘也行
+            }
+        }
+
         m_gold -= actualCost;
         m_playerUnits.push_back(unit);
         UpdateSynergies();

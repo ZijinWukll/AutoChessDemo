@@ -92,7 +92,7 @@ namespace synera
             refreshText = QString(" | 免费刷新: %1 次").arg(freeRefreshes);
         else
             refreshText = QString(" | 刷新: %1 金").arg(refreshCost);
-        painter.drawText(8, 8, QString("💰 金币: %1").arg(m_gameManager.GetGold()) + refreshText);
+        painter.drawText(8, 14, QString("💰 金币: %1").arg(m_gameManager.GetGold()) + refreshText);
 
         // 分隔线
         {

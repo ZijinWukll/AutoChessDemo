@@ -102,6 +102,7 @@
     <QtMoc Include="UI\BenchWidget.h" />
     <QtMoc Include="UI\UnitInfoWidget.h" />
     <QtMoc Include="UI\ShopWidget.h" />
+    <QtMoc Include="UI\StartWidget.h" />
     <ResourceCompile Include="Icon.rc" />
     <ClCompile Include="AutoChessDemo.cpp" />
     <ClCompile Include="GameCore\AIController.cpp" />
@@ -120,6 +121,7 @@
     <ClCompile Include="UI\BenchWidget.cpp" />
     <ClCompile Include="UI\BoardWidget.cpp" />
     <ClCompile Include="UI\ShopWidget.cpp" />
+    <ClCompile Include="UI\StartWidget.cpp" />
     <ClCompile Include="UI\UnitInfoWidget.cpp" />
   </ItemGroup>
   <ItemGroup>

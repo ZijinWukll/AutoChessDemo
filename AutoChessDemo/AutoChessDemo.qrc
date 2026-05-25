@@ -46,6 +46,9 @@
         <file>assets/ui/shop/card_inlay.png</file>
         <file>assets/ui/shop/shop_bg.png</file>
 
+        <!-- 开始界面背景 -->
+        <file>assets/ui/start_bg.png</file>
+
         <!-- 星级外框 -->
         <file>assets/ui/frames/star_1.png</file>
         <file>assets/ui/frames/star_2.png</file>

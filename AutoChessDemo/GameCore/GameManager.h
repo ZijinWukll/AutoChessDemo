@@ -64,6 +64,8 @@ namespace synera
         // ---- 阶段三：合星 ----
         bool TryMergeUnits();
         bool HasMergeableUnits() const;   // 检查是否有可合星的单位
+        // 购买某个单位（同名同星）是否能在满备战区时触化合星（已有2个，买后变3合并腾空间）
+        bool CanMergeOnPurchase(const std::string& name, StarLevel star) const;
 
         // ---- 阶段三：装备 ----
         EquipManager& GetEquipManager();
