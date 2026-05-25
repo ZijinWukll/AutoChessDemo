@@ -49,7 +49,7 @@ namespace synera
         : QWidget(parent)
         , m_gameManager(gameManager)
     {
-        setMinimumHeight(110);
+        setMinimumHeight(120);
     }
 
     void ShopWidget::RefreshDisplay()
@@ -73,14 +73,14 @@ namespace synera
 
         // 商店标题栏 — 渐变
         {
-            QLinearGradient titleGrad(0, 8, 0, 30);
+            QLinearGradient titleGrad(0, 6, 0, 26);
             titleGrad.setColorAt(0, QColor(44, 40, 58));
             titleGrad.setColorAt(1, QColor(36, 32, 50));
-            painter.fillRect(QRect(0, 8, width(), 22), titleGrad);
+            painter.fillRect(QRect(0, 6, width(), 20), titleGrad);
         }
         painter.setPen(QColor(180, 170, 210));
         QFont tf = painter.font();
-        tf.setPointSize(9);
+        tf.setPointSize(8);
         tf.setBold(true);
         painter.setFont(tf);
 
@@ -92,36 +92,36 @@ namespace synera
             refreshText = QString(" | 免费刷新: %1 次").arg(freeRefreshes);
         else
             refreshText = QString(" | 刷新: %1 金").arg(refreshCost);
-        painter.drawText(10, 10, QString("💰 金币: %1").arg(m_gameManager.GetGold()) + refreshText);
+        painter.drawText(8, 8, QString("💰 金币: %1").arg(m_gameManager.GetGold()) + refreshText);
 
-        // 分隔线 — 渐变
+        // 分隔线
         {
             QLinearGradient sepGrad(0, 0, width(), 0);
             sepGrad.setColorAt(0, QColor(60, 55, 80, 0));
             sepGrad.setColorAt(0.5, QColor(80, 70, 100, 120));
             sepGrad.setColorAt(1, QColor(60, 55, 80, 0));
-            painter.fillRect(QRect(0, 32, width(), 1), sepGrad);
+            painter.fillRect(QRect(0, 28, width(), 1), sepGrad);
         }
 
         const auto& units = shop.GetShopUnits();
         const int slotW = width() / SHOP_SIZE;
-        const int cardY = 36;
-        const int cardH = height() - 40;
+        const int cardTop = 32;
+        const int cardH = height() - 36;
 
         for (int i = 0; i < SHOP_SIZE; ++i)
         {
-            int cardX = i * slotW + 4;
-            int cardW = slotW - 8;
-            QRect cardRect(cardX, cardY, cardW, cardH);
+            int cardX = i * slotW + 3;
+            int cardW = slotW - 6;
+            QRect cardRect(cardX, cardTop, cardW, cardH);
 
-            // 卡片背景 — 渐变圆角卡
+            // 卡片背景 — 圆角矩形
             {
                 QLinearGradient cardBg(cardRect.topLeft(), cardRect.bottomLeft());
                 cardBg.setColorAt(0, QColor(48, 44, 62));
                 cardBg.setColorAt(1, QColor(40, 36, 52));
                 painter.setBrush(cardBg);
                 painter.setPen(QPen(QColor(70, 60, 90, 120), 1));
-                painter.drawRoundedRect(cardRect, 8, 8);
+                painter.drawRoundedRect(cardRect, 6, 6);
             }
 
             if (i < static_cast<int>(units.size()) && units[i])
@@ -130,23 +130,23 @@ namespace synera
                 int cost = GetUnitCost(unit->GetName());
                 QColor costColor = GetCostColor(cost);
 
-                // 卡片顶部费用色条 — 渐变
+                // ===== 费用色条（卡片顶部） =====
                 {
                     QLinearGradient costBar(cardRect.topLeft(), cardRect.topRight());
                     costBar.setColorAt(0, QColor(costColor.red(), costColor.green(), costColor.blue(), 50));
                     costBar.setColorAt(1, QColor(costColor.red(), costColor.green(), costColor.blue(), 20));
                     QPainterPath clipPath;
-                    clipPath.addRoundedRect(cardRect, 8, 8);
+                    clipPath.addRoundedRect(cardRect, 6, 6);
                     painter.setClipPath(clipPath);
-                    painter.fillRect(cardRect.adjusted(0, 0, 0, -cardH + 24), costBar);
+                    painter.fillRect(cardRect.adjusted(0, 0, 0, -cardH + 20), costBar);
                     painter.setClipping(false);
                 }
 
-                // 费用标签（右上角）— 圆形徽章
+                // ===== 费用徽章（右上角） =====
                 {
-                    int badgeX = cardRect.right() - 24;
-                    int badgeY = cardRect.top() + 6;
-                    int badgeR = 14;
+                    int badgeX = cardRect.right() - 22;
+                    int badgeY = cardRect.top() + 4;
+                    int badgeR = 13;
                     QRadialGradient badgeGrad(badgeX + badgeR / 2, badgeY + badgeR / 2, badgeR);
                     badgeGrad.setColorAt(0, costColor.lighter(130));
                     badgeGrad.setColorAt(1, costColor);
@@ -155,76 +155,75 @@ namespace synera
                     painter.drawEllipse(badgeX, badgeY, badgeR, badgeR);
                     painter.setPen(Qt::white);
                     QFont cf = painter.font();
-                    cf.setPointSize(8);
+                    cf.setPointSize(7);
                     cf.setBold(true);
                     painter.setFont(cf);
                     painter.drawText(badgeX, badgeY, badgeR, badgeR,
                                      Qt::AlignCenter, QString::number(cost));
                 }
 
-                // 单位圆形光晕背景
-                {
-                    int glowSize = qMin(cardW - 20, cardH - 60);
-                    glowSize = qMin(glowSize, 64);
-                    QRect glowRect(cardRect.center().x() - glowSize / 2,
-                                   cardRect.top() + 16, glowSize, glowSize);
-                    QRadialGradient radGrad(glowRect.center(), glowSize / 2);
-                    radGrad.setColorAt(0, QColor(costColor.red(), costColor.green(), costColor.blue(), 40));
-                    radGrad.setColorAt(1, QColor(costColor.red(), costColor.green(), costColor.blue(), 0));
-                    painter.setBrush(radGrad);
-                    painter.setPen(Qt::NoPen);
-                    painter.drawEllipse(glowRect);
-                }
-
-                // 单位精灵图
+                // ===== 单位精灵图 =====
                 QString texPath = GetUnitTexture(unit->GetName());
                 QPixmap unitTex(texPath);
                 if (!unitTex.isNull())
                 {
-                    int spriteSize = qMin(cardW - 20, cardH - 60);
-                    spriteSize = qMin(spriteSize, 56);
+                    int spriteSize = qMin(cardW - 14, cardH - 56);
+                    spriteSize = qMin(spriteSize, 54);
+                    spriteSize = qMax(spriteSize, 32);
                     QPixmap scaled = unitTex.scaled(spriteSize, spriteSize,
                                                      Qt::KeepAspectRatio, Qt::SmoothTransformation);
                     int sx = cardRect.center().x() - scaled.width() / 2;
-                    int sy = cardRect.top() + 18;
+                    int sy = cardRect.top() + 22;
                     painter.drawPixmap(sx, sy, scaled);
                 }
                 else
                 {
+                    // 没有贴图时画一个彩色圆
                     painter.setBrush(costColor.darker(150));
                     painter.setPen(Qt::NoPen);
-                    painter.drawEllipse(cardRect.center(), 20, 20);
+                    painter.drawEllipse(cardRect.center().x() - 18, cardRect.top() + 24, 36, 36);
+                    painter.setPen(Qt::white);
+                    QFont cf = painter.font();
+                    cf.setPointSize(10);
+                    cf.setBold(true);
+                    painter.setFont(cf);
+                    painter.drawText(cardRect.adjusted(0, cardH - 44, 0, -8),
+                                     Qt::AlignBottom | Qt::AlignHCenter,
+                                     QString::fromStdString(unit->GetName()).left(2));
                 }
 
-                // 单位名称
+                // ===== 单位名称 =====
                 painter.setPen(Qt::white);
                 QFont nf = painter.font();
                 nf.setPointSize(8);
                 nf.setBold(true);
                 painter.setFont(nf);
                 QString name = QString::fromStdString(unit->GetName());
-                painter.drawText(cardRect.adjusted(2, cardH - 28, -2, -8),
+                painter.drawText(cardRect.adjusted(2, cardH - 26, -2, -6),
                                  Qt::AlignBottom | Qt::AlignHCenter, name);
 
-                // 费用标签（底部）
+                // ===== 费用标签（左下方） =====
                 {
                     painter.setPen(costColor);
                     QFont cf2 = painter.font();
                     cf2.setPointSize(7);
                     cf2.setBold(true);
                     painter.setFont(cf2);
-                    painter.drawText(cardRect.adjusted(4, 2, -4, -2),
+                    painter.drawText(cardRect.adjusted(6, 2, -4, -2),
                                      Qt::AlignBottom | Qt::AlignLeft,
-                                     QString("💰 %1 金").arg(cost));
+                                     QString("💰%1").arg(cost));
                 }
-                // 提示文字
-                painter.setPen(QColor(140, 130, 170));
-                QFont cf3 = painter.font();
-                cf3.setPointSize(6);
-                cf3.setBold(false);
-                painter.setFont(cf3);
-                painter.drawText(cardRect.adjusted(4, 2, -4, -2),
-                                 Qt::AlignBottom | Qt::AlignRight, "点击查看");
+
+                // ===== "点击购买" 提示 =====
+                {
+                    painter.setPen(QColor(140, 130, 170));
+                    QFont cf3 = painter.font();
+                    cf3.setPointSize(6);
+                    cf3.setBold(false);
+                    painter.setFont(cf3);
+                    painter.drawText(cardRect.adjusted(4, 2, -6, -2),
+                                     Qt::AlignBottom | Qt::AlignRight, "购买");
+                }
             }
             else
             {

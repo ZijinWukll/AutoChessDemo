@@ -200,7 +200,7 @@ void AutoChessDemo::SetupUI()
     m_synergyLabel->setStyleSheet("color: #b090e0; font-size: 11px; padding: 2px 8px; "
                                    "background: rgba(40, 35, 60, 0.5); border-radius: 4px;");
     m_synergyLabel->setWordWrap(true);
-    m_synergyLabel->setMaximumHeight(40);
+    m_synergyLabel->setMaximumHeight(30);
     mainLayout->addWidget(m_synergyLabel);
 
     // ---- 棋盘 + 详情面板（水平分割） ----
@@ -246,7 +246,7 @@ void AutoChessDemo::SetupUI()
 
     // ---- 备战区 ----
     m_benchWidget = new BenchWidget(m_gameManager, this);
-    m_benchWidget->setFixedHeight(80);
+    m_benchWidget->setFixedHeight(65);
     connect(m_benchWidget, &BenchWidget::SlotClicked, this, &AutoChessDemo::OnBenchSlotClicked);
     connect(m_benchWidget, &BenchWidget::SellRequested, this, &AutoChessDemo::OnBenchSellRequested);
     mainLayout->addWidget(m_benchWidget);
@@ -258,7 +258,7 @@ void AutoChessDemo::SetupUI()
     shopLayout->setSpacing(4);
 
     m_shopWidget = new ShopWidget(m_gameManager, this);
-    m_shopWidget->setFixedHeight(110);
+    m_shopWidget->setFixedHeight(130);
     connect(m_shopWidget, &ShopWidget::UnitPurchased, this, &AutoChessDemo::OnShopUnitClicked);
     shopLayout->addWidget(m_shopWidget);
 
