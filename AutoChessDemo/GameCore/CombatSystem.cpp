@@ -29,7 +29,7 @@ namespace synera
             {
                 m_board.PlaceUnit(unit, pos);
                 unit->SetState(UnitState::Idle);
-                unit->SetAttackCooldown(0);
+                unit->SetAttackCooldown(0.0f);
             }
             else
             {
@@ -44,7 +44,7 @@ namespace synera
                             m_board.PlaceUnit(unit, p);
                             unit->SetGridPosition(rr, cc);
                             unit->SetState(UnitState::Idle);
-                            unit->SetAttackCooldown(0);
+                            unit->SetAttackCooldown(0.0f);
                             placed = true;
                         }
                     }
@@ -55,7 +55,7 @@ namespace synera
         DeployEnemiesToBoard(enemyUnits);
 
         m_active = true;
-        m_combatFrameCount = 0;
+        m_combatTimer = 0.0f;
     }
 
     void CombatSystem::DeployEnemiesToBoard(const std::vector<std::shared_ptr<Unit>>& enemyUnits)
@@ -86,7 +86,7 @@ namespace synera
                         m_board.PlaceUnit(u, p);
                         u->SetGridPosition(rr, cc);
                         u->SetState(UnitState::Idle);
-                        u->SetAttackCooldown(0);
+                        u->SetAttackCooldown(0.0f);
                         placed = true;
                     }
                 }
@@ -105,20 +105,20 @@ namespace synera
                         m_board.PlaceUnit(u, p);
                         u->SetGridPosition(rr, cc);
                         u->SetState(UnitState::Idle);
-                        u->SetAttackCooldown(0);
+                        u->SetAttackCooldown(0.0f);
                         placed = true;
                     }
                 }
         }
     }
 
-    void CombatSystem::Update()
+    void CombatSystem::Update(float deltaTime)
     {
         if (!m_active)
             return;
 
-        m_combatFrameCount++;
-        if (m_combatFrameCount > MAX_COMBAT_FRAMES)
+        m_combatTimer += deltaTime;
+        if (m_combatTimer > MAX_COMBAT_TIME)
         {
             m_active = false;
             return;
@@ -127,7 +127,7 @@ namespace synera
         auto aliveUnits = GetAllAliveUnits();
         for (auto& unit : aliveUnits)
         {
-            ProcessUnit(unit);
+            ProcessUnit(unit, deltaTime);
         }
 
         // 检查战斗是否结束
@@ -175,7 +175,7 @@ namespace synera
         return enemies;
     }
 
-    void CombatSystem::ProcessUnit(std::shared_ptr<Unit> unit)
+    void CombatSystem::ProcessUnit(std::shared_ptr<Unit> unit, float dt)
     {
         if (!unit || !unit->IsAlive())
             return;
@@ -221,17 +221,17 @@ namespace synera
         case UnitState::Moving:
         {
             // 移动冷却 — 控制走位速度，让玩家看清每一步移动
-            unit->TickMoveCooldown();
+            unit->TickMoveCooldown(dt);
             if (!unit->IsMoveReady())
                 break;
-            unit->SetMoveCooldown(MOVE_COOLDOWN);
+            unit->SetMoveCooldown(MOVE_COOLDOWN_TIME);
             MoveTowardEnemy(unit);
             break;
         }
 
         case UnitState::Attacking:
         {
-            unit->TickAttackCooldown();
+            unit->TickAttackCooldown(dt);
             if (unit->IsAttackReady())
             {
                 auto enemies = GetEnemiesFor(*unit);
@@ -306,7 +306,7 @@ namespace synera
         unit->AddMana(MANA_PER_ATTACK);
 
         // 重置攻击冷却
-        unit->SetAttackCooldown(DEFAULT_ATTACK_COOLDOWN);
+        unit->SetAttackCooldown(ATTACK_COOLDOWN_TIME);
 
         // 如果目标死亡
         if (!target->IsAlive())

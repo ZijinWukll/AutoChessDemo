@@ -23,6 +23,8 @@ namespace synera
     constexpr int FPS = 60;                         // 游戏帧率
     constexpr int DEFAULT_ATTACK_COOLDOWN = 35;     // 攻击间隔帧数（100fps ≈ 0.35 秒/次，前期约 5s 打完一轮）
     constexpr int MOVE_COOLDOWN = 8;                // 移动冷却帧数（100fps ≈ 12 格/秒，走位仍可见）
+    constexpr float ATTACK_COOLDOWN_TIME = 0.35f;   // 攻击间隔 350ms
+    constexpr float MOVE_COOLDOWN_TIME = 0.08f;     // 移动冷却 80ms
     constexpr int MAX_MANA = 60;                    // 默认最大法力值
     constexpr int MANA_PER_ATTACK = 10;             // 每次普攻回复法力
     constexpr int MANA_PER_HIT = 10;                // 每次受击回复法力

@@ -67,7 +67,7 @@ namespace synera
         layout->addStretch(1);
 
         // 版本信息
-        QLabel* versionLabel = new QLabel("v4.0", this);
+        QLabel* versionLabel = new QLabel("v4.2", this);
         versionLabel->setStyleSheet("color: #605878; font-size: 11px; padding: 8px;");
         versionLabel->setAlignment(Qt::AlignCenter);
         layout->addWidget(versionLabel, 0, Qt::AlignCenter);
@@ -89,8 +89,10 @@ namespace synera
         // ===== 背景 =====
         if (!m_background.isNull())
         {
-            QPixmap scaled = m_background.scaled(size(), Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
-            painter.drawPixmap(0, 0, scaled);
+            QPixmap scaled = m_background.scaled(size(), Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
+            int bx = (width() - scaled.width()) / 2;
+            int by = (height() - scaled.height()) / 2;
+            painter.drawPixmap(bx, by, scaled);
             // 半透明暗色遮罩，略加深以突出文字
             painter.fillRect(rect(), QColor(10, 8, 18, 120));
         }
@@ -293,6 +295,10 @@ namespace synera
 <h2>操作</h2>
 <p>点击商店卡片 → 确认购买 | 拖拽部署/撤回<br>
 右键备战区快速出售 | 第 1 次刷新免费，之后递增 1 金币</p>
+<h2>全屏模式</h2>
+	<p>启动即全屏。按 <b>F11</b> 切换全屏/窗口，全屏时按 <b>ESC</b> 退回窗口。<br>
+	右上角最大化 = 全屏，最小化可缩到任务栏，恢复后回到缩小前状态。<br>
+	全屏时 16:9 背景无裁剪，窗口模式自动适配。</p>
 )");
 
         layout->addWidget(text);

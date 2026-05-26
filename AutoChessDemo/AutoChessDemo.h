@@ -8,6 +8,8 @@
 #include <QMouseEvent>
 
 #include <QPushButton>
+#include <QPainter>
+#include <QShortcut>
 #include "ui_AutoChessDemo.h"
 #include "GameCore/GameManager.h"
 #include "UI/BoardWidget.h"
@@ -17,6 +19,30 @@
 #include "UI/StartWidget.h"
 
 using namespace synera;
+
+// ===== 全屏模式包装器：保持 800:850 宽高比，letterbox 区域显示背景图 =====
+class CentralWrapper : public QWidget
+{
+    Q_OBJECT
+public:
+    explicit CentralWrapper(QWidget* parent = nullptr);
+
+    void setChildWidget(QWidget* w);
+    void setFullscreenActive(bool active);
+    bool isFullscreenActive() const { return m_fullscreenActive; }
+    void loadBackground(const QString& path);
+
+    static constexpr double kDesignAspectRatio = 800.0 / 850.0;
+
+protected:
+    void paintEvent(QPaintEvent* event) override;
+    void resizeEvent(QResizeEvent* event) override;
+
+private:
+    QWidget* m_child = nullptr;
+    bool m_fullscreenActive = false;
+    QPixmap m_background;
+};
 
 class AutoChessDemo : public QMainWindow
 {
@@ -28,6 +54,10 @@ public:
 
 protected:
     bool eventFilter(QObject* obj, QEvent* event) override;
+    void changeEvent(QEvent* event) override;
+#if defined(Q_OS_WIN)
+    bool nativeEvent(const QByteArray& eventType, void* message, qintptr* result) override;
+#endif
 
 private slots:
     // ---- 游戏循环 ----
@@ -96,12 +126,15 @@ private:
     QPushButton* m_confirmPurchaseBtn = nullptr;
 
     // ---- 开始界面 / 游戏界面切换 ----
+    CentralWrapper* m_centralWrapper = nullptr;
     QStackedWidget* m_stackedWidget = nullptr;
     StartWidget* m_startWidget = nullptr;
     QWidget* m_gameContainer = nullptr;
+    bool m_isFullscreen = false;        // 当前是否为全屏模式
     void OnStartGame();                 // 从开始界面进入游戏
     void SetupStartScreen();            // 初始化开始界面
     void SetupGameUI();                 // 初始化游戏界面（原 SetupUI 改名）
+    void ToggleFullscreen();            // 切换全屏/窗口模式
 
     void RebuildDragPreview(bool overBoard, bool validSpot); // 构建拖拽预览缓存
     void UpdateDragPreview(const QPoint& globalPos);  // 更新拖拽预览位置

@@ -52,14 +52,14 @@ namespace synera
         UnitState GetState() const;
         void SetState(UnitState state);
 
-        int GetAttackCooldown() const;
-        void SetAttackCooldown(int cd);
+        float GetAttackCooldown() const;
+        void SetAttackCooldown(float cd);
         bool IsAttackReady() const;             // 攻击冷却是否就绪
-        void TickAttackCooldown();              // 每帧减少冷却
+        void TickAttackCooldown(float dt);      // 每帧减少冷却
 
-        int GetMoveCooldown() const;
-        void SetMoveCooldown(int cd);
-        void TickMoveCooldown();
+        float GetMoveCooldown() const;
+        void SetMoveCooldown(float cd);
+        void TickMoveCooldown(float dt);
         bool IsMoveReady() const;
 
         // ---- 阶段二：攻击/施法 ----
@@ -103,8 +103,8 @@ namespace synera
         int m_mana = 0;
         int m_maxMana = synera::MAX_MANA;
         UnitState m_state = UnitState::Idle;
-        int m_attackCooldown = 0;           // 0 = 可攻击
-        int m_moveCooldown = 0;             // 0 = 可移动
+        float m_attackCooldown = 0.0f;       // 0 = 可攻击
+        float m_moveCooldown = 0.0f;         // 0 = 可移动
 
         // ---- 位置记录 ----
         int m_gridRow = -1;

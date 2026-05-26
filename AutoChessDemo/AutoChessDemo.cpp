@@ -155,6 +155,21 @@ AutoChessDemo::AutoChessDemo(QWidget *parent)
             border-radius: 2px;
         }
     )");
+
+    // F11 全屏/窗口切换
+    QShortcut* fsShortcut = new QShortcut(QKeySequence(Qt::Key_F11), this);
+    connect(fsShortcut, &QShortcut::activated, this, &AutoChessDemo::ToggleFullscreen);
+
+    // ESC 从全屏退回800×850窗口模式（窗口模式下无操作）
+    QShortcut* escShortcut = new QShortcut(QKeySequence(Qt::Key_Escape), this);
+    connect(escShortcut, &QShortcut::activated, this, [this]() {
+        if (m_isFullscreen)
+            ToggleFullscreen();
+    });
+
+    // 启动即全屏 — 设置标志供 changeEvent / resizeEvent 使用
+    m_isFullscreen = true;
+    m_centralWrapper->setFullscreenActive(true);
 }
 
 AutoChessDemo::~AutoChessDemo()
@@ -162,21 +177,113 @@ AutoChessDemo::~AutoChessDemo()
     m_timer->stop();
 }
 
+// ========== CentralWrapper 实现 ==========
+
+CentralWrapper::CentralWrapper(QWidget* parent)
+    : QWidget(parent)
+{
+}
+
+void CentralWrapper::setChildWidget(QWidget* w)
+{
+    m_child = w;
+    if (m_child)
+        m_child->setGeometry(rect());
+}
+
+void CentralWrapper::setFullscreenActive(bool active)
+{
+    m_fullscreenActive = active;
+    update();
+    // 实际的尺寸调整由 showFullScreen()/showNormal() 触发的 resizeEvent 处理
+}
+
+void CentralWrapper::loadBackground(const QString& path)
+{
+    m_background = QPixmap(path);
+    if (!m_background.isNull())
+        update();
+}
+
+void CentralWrapper::paintEvent(QPaintEvent* event)
+{
+    if (m_background.isNull())
+    {
+        QWidget::paintEvent(event);
+        return;
+    }
+
+    QPainter painter(this);
+    painter.setRenderHint(QPainter::SmoothPixmapTransform);
+    painter.setRenderHint(QPainter::Antialiasing);
+
+    // 背景图 — 保持宽高比填满整个窗口（窗口模式裁剪，全屏16:9刚好不裁）
+    QPixmap scaled = m_background.scaled(size(), Qt::KeepAspectRatioByExpanding,
+                                          Qt::SmoothTransformation);
+    int x = (width() - scaled.width()) / 2;
+    int y = (height() - scaled.height()) / 2;
+    painter.drawPixmap(x, y, scaled);
+
+    // 暗色半透明遮罩（降低背景的显眼程度）
+    painter.fillRect(rect(), QColor(10, 8, 18, 140));
+}
+
+void CentralWrapper::resizeEvent(QResizeEvent* event)
+{
+    QWidget::resizeEvent(event);
+
+    if (!m_child)
+        return;
+
+    if (m_fullscreenActive)
+    {
+        int w = width();
+        int h = height();
+
+        // 保持 800:850 宽高比，居中显示
+        if (w * 850 >= h * 800)
+        {
+            // 窗口更宽：高度受限
+            h = h;
+            w = h * 800 / 850;
+        }
+        else
+        {
+            // 窗口更高：宽度受限
+            w = w;
+            h = w * 850 / 800;
+        }
+
+        int gx = (width() - w) / 2;
+        int gy = (height() - h) / 2;
+        m_child->setGeometry(gx, gy, w, h);
+    }
+    else
+    {
+        m_child->setGeometry(rect());
+    }
+}
+
 void AutoChessDemo::SetupStartScreen()
 {
-    // QStackedWidget 作为中央控件
-    m_stackedWidget = new QStackedWidget(this);
-    setCentralWidget(m_stackedWidget);
+    // CentralWrapper 作为中央控件（全屏模式管理宽高比 + 背景）
+    m_centralWrapper = new CentralWrapper(this);
+    setCentralWidget(m_centralWrapper);
+
+    // QStackedWidget 放入 wrapper 中
+    m_stackedWidget = new QStackedWidget(m_centralWrapper);
+    m_centralWrapper->setChildWidget(m_stackedWidget);
 
     // 第 0 页：开始界面
-    m_startWidget = new synera::StartWidget(this);
+    m_startWidget = new synera::StartWidget(m_stackedWidget);
     m_stackedWidget->addWidget(m_startWidget);
 
     // 第 1 页：游戏界面（占位，点击"开始游戏"后真正构建）
-    m_gameContainer = new QWidget(this);
+    m_gameContainer = new QWidget(m_stackedWidget);
     m_stackedWidget->addWidget(m_gameContainer);
 
-    // 加载开始界面背景图
+    // 将开始界面背景图也加载到 wrapper 中（全屏 letterbox 使用）
+    m_centralWrapper->loadBackground(":/AutoChessDemo/assets/ui/start_bg.png");
     m_startWidget->SetBackgroundImage(":/AutoChessDemo/assets/ui/start_bg.png");
 
     m_stackedWidget->setCurrentIndex(0);
@@ -373,7 +480,12 @@ void AutoChessDemo::SetupGameUI()
 
 void AutoChessDemo::OnTick()
 {
-    m_gameManager.Update(1.0f / 60.0f);
+    // 使用实际经过时间作为 deltaTime，确保帧率波动不影响游戏速度
+    static qint64 lastTick = QDateTime::currentMSecsSinceEpoch();
+    qint64 now = QDateTime::currentMSecsSinceEpoch();
+    float dt = qMax(0.0f, qMin((now - lastTick) / 1000.0f, 0.05f)); // clamp 0~50ms
+    lastTick = now;
+    m_gameManager.Update(dt);
 
     // 更新动画
     m_boardWidget->UpdateAnimations();
@@ -843,6 +955,24 @@ void AutoChessDemo::OnConfirmPurchase()
     if (m_confirmPurchaseBtn) m_confirmPurchaseBtn->hide();
 }
 
+// ========== 全屏切换 ==========
+
+void AutoChessDemo::ToggleFullscreen()
+{
+    m_isFullscreen = !m_isFullscreen;
+
+    if (m_isFullscreen)
+    {
+        m_centralWrapper->setFullscreenActive(true);
+        showFullScreen();
+    }
+    else
+    {
+        m_centralWrapper->setFullscreenActive(false);
+        showNormal();
+    }
+}
+
 // ========== 按钮事件 ==========
 
 void AutoChessDemo::OnStartCombatClicked()
@@ -1179,6 +1309,39 @@ void AutoChessDemo::HideDragPreview()
         m_dragPreview = nullptr;
     }
 }
+
+// ========== 窗口状态变化（从任务栏恢复时保持全屏） ==========
+
+void AutoChessDemo::changeEvent(QEvent* event)
+{
+    // 最大化/全屏状态切换由 nativeEvent (Windows) 处理，无需额外逻辑
+    QMainWindow::changeEvent(event);
+}
+
+#if defined(Q_OS_WIN)
+#include <windows.h>
+
+bool AutoChessDemo::nativeEvent(const QByteArray& eventType, void* message, qintptr* result)
+{
+    if (eventType == "windows_generic_MSG")
+    {
+        MSG* msg = static_cast<MSG*>(message);
+        if (msg->message == WM_SYSCOMMAND)
+        {
+            // 拦截最大化命令 → 转为全屏（避免先最大化再全屏的闪烁）
+            if (msg->wParam == SC_MAXIMIZE)
+            {
+                m_isFullscreen = true;
+                m_centralWrapper->setFullscreenActive(true);
+                showFullScreen();
+                *result = 0;
+                return true; // 阻止默认最大化行为
+            }
+        }
+    }
+    return QMainWindow::nativeEvent(eventType, message, result);
+}
+#endif
 
 // ========== 事件过滤器（拖拽处理） ==========
 

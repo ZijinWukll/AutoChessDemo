@@ -8,7 +8,7 @@
 
 ## 快速开始（Release）
 
-从 [GitHub Releases](https://github.com/ZijinWukll/AutoChessDemo/releases) 下载最新版本的 `Synera-v4.0.zip` 压缩包。
+从 [GitHub Releases](https://github.com/ZijinWukll/AutoChessDemo/releases) 下载最新版本的 `Synera-v4.2.zip` 压缩包。
 
 1. 将下载的 ZIP 压缩包**完整解压**到一个文件夹（不要直接拖出 exe）
 2. 进入文件夹，双击 **SYNERA.exe** 即可开玩
@@ -243,6 +243,12 @@ AutoChessDemo/
   - 胜/负金币重平衡：前 10 轮波数×2，11 轮起 +5；战败敌人归位
   - 全新开始界面：艺术字 SYNERA 标题、背景图、玩法介绍弹窗
   - 拖拽预览优化：浮动窗口跟随鼠标零延迟、缓存渲染
+- **v4.2 更新**：
+  - 全屏模式：启动即全屏，F11 切换、ESC 退回窗口、最大化=全屏
+  - 全新 16:9 背景图：全屏无裁剪，窗口自动适配，暗色遮罩提示文字可读
+  - 窗口行为优化：启动全屏无初始窗口，任务栏恢复保持原状态
+  - 帧率无关战斗引擎：冷却系统从帧计数改为 deltaTime，插电/离电速度一致
+  - 代码重构：CentralWrapper 包装器管理宽高比，nativeEvent 拦截最大化消息无闪烁
 
 ---
 
@@ -261,7 +267,7 @@ AutoChessDemo/
 
 - **纯逻辑与 UI 分离**：`GameCore/` 下所有代码不依赖 Qt，数据结构与算法可独立复用，通过信号/槽与 UI 层通信
 - **自绘界面**：所有 UI 组件（棋盘、备战区、商店、单位详情）使用 QPainter 自定义绘制，不依赖 QML 或 Qt Designer 控件
-- **帧驱动游戏循环**：10ms QTimer（~100fps）驱动 `GameManager::Update()`，战斗逻辑固定 60fps 步进
+- **帧率无关游戏循环**：10ms QTimer 驱动 `GameManager::Update(dt)`，使用实际经过时间，插电/离电速度一致
 - **分阶段生命周期**：`Preparation`（布阵/购买/合星）→ `Combat`（自动战斗）→ `CombatEnd`（结算/扣血/发金币），每个阶段有严格的操作权限控制
 - **子系统解耦**：ShopSystem / SynergySystem / MergeSystem / CombatSystem / AIController 等各子系统独立，由 GameManager 协调编排
 - **集中配置**：`GameConfig.h` 统一管理所有平衡性常量（棋盘尺寸、经济公式、概率表、星级倍率等），方便数值调整

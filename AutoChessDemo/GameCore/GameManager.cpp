@@ -125,14 +125,12 @@ namespace synera
 
     void GameManager::Update(float deltaTime)
     {
-        (void)deltaTime; // 暂未使用 deltaTime，帧率由定时器保证
-
         // 清空上一帧攻击事件
         m_recentAttackEvents.clear();
 
         if (m_phase == GamePhase::Combat)
         {
-            m_combatSystem.Update();
+            m_combatSystem.Update(deltaTime);
 
             // 取出本帧的攻击事件供 UI 渲染
             m_recentAttackEvents = m_combatSystem.GetAttackEvents();

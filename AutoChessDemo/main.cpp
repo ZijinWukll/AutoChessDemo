@@ -12,6 +12,6 @@ int main(int argc, char *argv[])
     app.setFont(appFont);
 
     AutoChessDemo window;
-    window.show();
+    window.showFullScreen();
     return app.exec();
 }

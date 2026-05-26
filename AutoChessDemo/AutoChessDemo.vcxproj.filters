@@ -61,9 +61,6 @@
     <ClCompile Include="GameCore\Board.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="GameCore\Bench.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="GameCore\PathFinder.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -103,11 +100,14 @@
     <ClCompile Include="UI\StartWidget.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="GameCore\AudioManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="GameCore\Bench.cpp">
+      <Filter>Form Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="AutoChessDemo.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="GameCore\Types.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -150,5 +150,13 @@
     <ClInclude Include="GameCore\GameManager.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="GameCore\AudioManager.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Icon.rc">
+      <Filter>Resource Files</Filter>
+    </ResourceCompile>
   </ItemGroup>
 </Project>

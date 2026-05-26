@@ -3,7 +3,13 @@
     "allow": [
       "Bash(echo '{\"model\":{\"display_name\":\"deepseek-v4-flash\"},\"session_name\":\"autochess\",\"context_window\":{\"remaining_percentage\":85.2},\"workspace\":{\"current_dir\":\"E:\\\\\\\\cpp项目\"}}' > /tmp/test_status.json && cat /tmp/test_status.json | grep -o '\"display_name\"[[:space:]]*:[[:space:]]*\"[^\"]*\"' | head -1 | sed 's/.*:[[:space:]]*\"\\\\\\(.*\\\\\\)\"/\\\\1/')",
       "Read(//tmp/**)",
-      "Bash(msbuild AutoChessDemo.slnx /p:Configuration=Debug /p:Platform=x64)"
+      "Bash(msbuild AutoChessDemo.slnx /p:Configuration=Debug /p:Platform=x64)",
+      "Read(//c/Program Files/Microsoft Visual Studio/**)",
+      "Read(//c/Program Files/Microsoft Visual Studio//**)",
+      "Read(//c/Program Files \\(x86\\)/Microsoft Visual Studio/**)",
+      "Read(//d/Program Files/**)",
+      "Bash(find /c -name \"msbuild.exe\" -path \"*/MSBuild/*\")",
+      "Bash(ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 \"E:\\\\\\\\cpp项目\\(VS用）\\\\\\\\AutoChessDemo\\\\\\\\AutoChessDemo\\\\\\\\assets\\\\\\\\ui\\\\\\\\start_bg.png\")"
     ]
   }
 }

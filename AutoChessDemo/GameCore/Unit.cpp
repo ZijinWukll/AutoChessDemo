@@ -85,22 +85,22 @@ namespace synera
     UnitState Unit::GetState() const { return m_state; }
     void Unit::SetState(UnitState state) { m_state = state; }
 
-    int Unit::GetAttackCooldown() const { return m_attackCooldown; }
-    void Unit::SetAttackCooldown(int cd) { m_attackCooldown = std::max(0, cd); }
-    bool Unit::IsAttackReady() const { return m_attackCooldown <= 0 && IsAlive(); }
-    void Unit::TickAttackCooldown()
+    float Unit::GetAttackCooldown() const { return m_attackCooldown; }
+    void Unit::SetAttackCooldown(float cd) { m_attackCooldown = std::max(0.0f, cd); }
+    bool Unit::IsAttackReady() const { return m_attackCooldown <= 0.0f && IsAlive(); }
+    void Unit::TickAttackCooldown(float dt)
     {
-        if (m_attackCooldown > 0)
-            --m_attackCooldown;
+        if (m_attackCooldown > 0.0f)
+            m_attackCooldown -= dt;
     }
 
-    int Unit::GetMoveCooldown() const { return m_moveCooldown; }
-    void Unit::SetMoveCooldown(int cd) { m_moveCooldown = std::max(0, cd); }
-    bool Unit::IsMoveReady() const { return m_moveCooldown <= 0 && IsAlive(); }
-    void Unit::TickMoveCooldown()
+    float Unit::GetMoveCooldown() const { return m_moveCooldown; }
+    void Unit::SetMoveCooldown(float cd) { m_moveCooldown = std::max(0.0f, cd); }
+    bool Unit::IsMoveReady() const { return m_moveCooldown <= 0.0f && IsAlive(); }
+    void Unit::TickMoveCooldown(float dt)
     {
-        if (m_moveCooldown > 0)
-            --m_moveCooldown;
+        if (m_moveCooldown > 0.0f)
+            m_moveCooldown -= dt;
     }
 
     // ========== 阶段二：伤害计算 ==========

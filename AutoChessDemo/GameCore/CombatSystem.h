@@ -33,7 +33,7 @@ namespace synera
         // ---- 每帧更新 ----
         // 60 fps 调用，驱动所有单位的行动。
         // #TODO: 实现主循环逻辑
-        void Update();
+        void Update(float deltaTime);
 
         // ---- 战斗状态 ----
         bool IsCombatActive() const;
@@ -52,7 +52,7 @@ namespace synera
         std::vector<std::shared_ptr<Unit>> GetEnemiesFor(const Unit& unit) const;
 
         // ---- 核心行为 ----
-        void ProcessUnit(std::shared_ptr<Unit> unit);
+        void ProcessUnit(std::shared_ptr<Unit> unit, float dt);
         void PerformAttack(std::shared_ptr<Unit> unit, std::shared_ptr<Unit> target);
         void MoveTowardEnemy(std::shared_ptr<Unit> unit);
 
@@ -68,8 +68,8 @@ namespace synera
         void DeployEnemiesToBoard(const std::vector<std::shared_ptr<Unit>>& enemyUnits);
 
         // ---- 超时保护 ----
-        int m_combatFrameCount = 0;
-        static constexpr int MAX_COMBAT_FRAMES = 3000;  // ~30s at 100fps
+        float m_combatTimer = 0.0f;
+        static constexpr float MAX_COMBAT_TIME = 30.0f;  // ~30s at 100fps
 
         // ---- 攻击事件缓存（每帧清空） ----
         std::vector<AttackEvent> m_attackEvents;
