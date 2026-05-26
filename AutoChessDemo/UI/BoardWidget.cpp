@@ -197,11 +197,11 @@ namespace synera
         const int cellW = width() / cols;
         const int cellH = height() / rows;
 
-        // 缓存格子贴图 — 渐变风格
+        // 缓存格子贴图 — 暗黑魔法石板风格
         static QPixmap cellLight, cellDark;
         if (cellLight.isNull())
         {
-            auto makeCell = [](const QColor& c1, const QColor& c2) {
+            auto makeCell = [](const QColor& c1, const QColor& c2, const QColor& glow) {
                 QPixmap px(64, 64);
                 px.fill(Qt::transparent);
                 QPainter cp(&px);
@@ -213,15 +213,15 @@ namespace synera
                 cp.setPen(Qt::NoPen);
                 cp.drawRoundedRect(1, 1, 62, 62, 4, 4);
                 // 内发光
-                cp.setBrush(QColor(255, 255, 255, 8));
+                cp.setBrush(glow);
                 cp.drawRoundedRect(2, 2, 60, 60, 3, 3);
                 return px;
             };
-            cellLight = makeCell(QColor(215, 202, 180), QColor(195, 182, 160));
-            cellDark  = makeCell(QColor(175, 158, 135), QColor(155, 138, 115));
+            cellLight = makeCell(QColor(44, 39, 60), QColor(38, 33, 54), QColor(160, 140, 255, 8));
+            cellDark  = makeCell(QColor(37, 32, 52), QColor(31, 26, 46), QColor(100, 80, 200, 5));
         }
 
-        // 缓存高亮贴图 — 带外发光效果
+        // 缓存高亮贴图 — 暗黑魔法主题
         static QPixmap hlSelect, hlMove, hlAttack;
         if (hlSelect.isNull())
         {
@@ -240,9 +240,9 @@ namespace synera
                 p.drawRoundedRect(4, 4, 56, 56, 5, 5);
                 return px;
             };
-            hlSelect = makeHL(QColor(80, 200, 200, 50),  QColor(80, 200, 200),     QColor(80, 200, 200, 40));
-            hlMove   = makeHL(QColor(100, 200, 100, 40), QColor(100, 200, 100),  QColor(100, 200, 100, 30));
-            hlAttack = makeHL(QColor(255, 80, 80, 40),   QColor(255, 80, 80),    QColor(255, 80, 80, 30));
+            hlSelect = makeHL(QColor(80, 160, 255, 45),  QColor(80, 160, 255, 200),    QColor(80, 160, 255, 35));
+            hlMove   = makeHL(QColor(60, 200, 255, 35), QColor(60, 200, 255, 160),   QColor(60, 200, 255, 25));
+            hlAttack = makeHL(QColor(220, 60, 120, 35),  QColor(220, 60, 120, 160),   QColor(220, 60, 120, 25));
         }
 
         int halfRow = rows / 2; // 上半=敌方，下半=我方
@@ -259,83 +259,52 @@ namespace synera
         // ===== 第2层：半场色调（渐变覆盖） =====
         QRect enemyHalf(0, 0, width(), halfRow * cellH);
         QRect playerHalf(0, halfRow * cellH, width(), height() - halfRow * cellH);
-        // 敌方半场（上半）— 暗红渐变
+        // 敌方半场（上半）— 暗紫魔法能量
         {
             QLinearGradient enemyGrad(0, 0, 0, halfRow * cellH);
-            enemyGrad.setColorAt(0, QColor(160, 40, 40, 70));
-            enemyGrad.setColorAt(1, QColor(160, 40, 40, 20));
+            enemyGrad.setColorAt(0, QColor(180, 60, 220, 30));
+            enemyGrad.setColorAt(0.4, QColor(140, 50, 200, 18));
+            enemyGrad.setColorAt(1, QColor(100, 40, 180, 6));
             painter.fillRect(enemyHalf, enemyGrad);
         }
-        // 我方半场（下半）— 暗蓝渐变
+        // 我方半场（下半）— 深蓝奥术能量
         {
             QLinearGradient playerGrad(0, halfRow * cellH, 0, height());
-            playerGrad.setColorAt(0, QColor(40, 70, 160, 20));
-            playerGrad.setColorAt(1, QColor(40, 70, 160, 70));
+            playerGrad.setColorAt(0, QColor(40, 80, 220, 6));
+            playerGrad.setColorAt(0.6, QColor(50, 100, 230, 18));
+            playerGrad.setColorAt(1, QColor(60, 110, 240, 30));
             painter.fillRect(playerHalf, playerGrad);
         }
 
-        // ===== 第3层：中线分隔 — 微光效果 =====
+        // ===== 第3层：中线分隔 — 能量裂隙效果 =====
         {
             int midY = halfRow * cellH;
-            // 外发光
-            painter.setPen(QPen(QColor(120, 160, 255, 30), 6));
+            // 外层宽光晕（紫）
+            painter.setPen(QPen(QColor(140, 60, 200, 22), 10));
             painter.drawLine(4, midY, width() - 4, midY);
-            // 主线
-            QPen midPen(QColor(120, 160, 255, 150), 2, Qt::DashLine);
-            painter.setPen(midPen);
-            painter.drawLine(8, midY, width() - 8, midY);
-            // 端点装饰 — 小圆点
-            painter.setBrush(QColor(120, 160, 255, 180));
+            // 中层光晕（蓝紫）
+            painter.setPen(QPen(QColor(80, 80, 220, 40), 4));
+            painter.drawLine(6, midY, width() - 6, midY);
+            // 核心线（亮蓝白）
+            painter.setPen(QPen(QColor(140, 140, 255, 100), 1, Qt::DashLine));
+            painter.drawLine(10, midY, width() - 10, midY);
+            // 端点符文 — 发光圆点
+            painter.setBrush(QColor(150, 120, 255, 150));
             painter.setPen(Qt::NoPen);
-            painter.drawEllipse(QPointF(6, midY), 3, 3);
-            painter.drawEllipse(QPointF(width() - 6, midY), 3, 3);
+            painter.drawEllipse(QPointF(6, midY), 4, 4);
+            painter.drawEllipse(QPointF(width() - 6, midY), 4, 4);
+            // 内核光点
+            painter.setBrush(QColor(210, 200, 255, 200));
+            painter.drawEllipse(QPointF(6, midY), 2, 2);
+            painter.drawEllipse(QPointF(width() - 6, midY), 2, 2);
         }
 
-        // ===== 第4层：拖拽放置区指示 =====
+        // ===== 第4层：拖拽放置区指示（已精简 — 交由第7层高亮系统处理单个格子） =====
+        // 拖拽时不再覆盖整个半场，只由 UpdateBoardHover 设置单个格子的高亮
+        // 保留 m_dragZoneVisible 标志控制是否渲染其他拖拽相关元素
         if (m_dragZoneVisible)
         {
-            bool slotFull = m_gameManager.IsSlotLimitReached();
-            // 己方半场：人数未满 → 柔和绿覆盖；已满 → 红色(如敌方半场)
-            for (int r = halfRow; r < rows; ++r)
-                for (int c = 0; c < cols; ++c)
-                {
-                    Position pos(r, c);
-                    if (!board.IsOccupied(pos))
-                    {
-                        QRect cr(c * cellW, r * cellH, cellW, cellH);
-                        if (slotFull)
-                        {
-                            // 红色不可放置
-                            painter.fillRect(cr, QColor(200, 60, 60, 25));
-                            painter.setPen(QPen(QColor(200, 60, 60, 120), 2));
-                            painter.drawRoundedRect(cr.adjusted(3, 3, -3, -3), 6, 6);
-                            // ✗ 标记
-                            painter.setPen(QPen(QColor(200, 60, 60, 60), 2));
-                            int cx = cr.center().x(), cy = cr.center().y(), m = 7;
-                            painter.drawLine(cx - m, cy - m, cx + m, cy + m);
-                            painter.drawLine(cx + m, cy - m, cx - m, cy + m);
-                        }
-                        else
-                        {
-                            // 绿色可放置
-                            painter.fillRect(cr, QColor(80, 200, 120, 20));
-                            painter.setPen(QPen(QColor(80, 200, 120, 100), 2));
-                            painter.drawRoundedRect(cr.adjusted(3, 3, -3, -3), 6, 6);
-                            // 中心十字标记
-                            painter.setPen(QPen(QColor(80, 200, 120, 50), 1));
-                            int m = 6, cx = cr.center().x(), cy = cr.center().y();
-                            painter.drawLine(cx - m, cy, cx + m, cy);
-                            painter.drawLine(cx, cy - m, cx, cy + m);
-                        }
-                    }
-                }
-            // 敌方半场：暗红覆盖（表示不可放置）
-            {
-                QLinearGradient denGrad(0, 0, 0, halfRow * cellH);
-                denGrad.setColorAt(0, QColor(180, 60, 60, 22));
-                denGrad.setColorAt(1, QColor(180, 60, 60, 6));
-                painter.fillRect(QRect(0, 0, width(), halfRow * cellH), denGrad);
-            }
+            // 空操作：单个格子的蓝光由第7层高亮绘制
         }
 
         // ===== 第5层：半场标签 =====
@@ -345,30 +314,30 @@ namespace synera
             labelFont.setBold(true);
             painter.setFont(labelFont);
 
-            // 敌方标签 (左上) — 红色标签背景
+            // 敌方标签 (左上) — 暗紫徽章
             {
-                QRect tagRect(4, 4, 80, 18);
-                painter.setBrush(QColor(180, 50, 50, 100));
-                painter.setPen(Qt::NoPen);
-                painter.drawRoundedRect(tagRect, 4, 4);
-                painter.setPen(QColor(255, 140, 140, 220));
-                painter.drawText(tagRect, Qt::AlignCenter, "⚔ 敌方区域");
+                QRect tagRect(6, 6, 72, 20);
+                painter.setBrush(QColor(140, 50, 200, 70));
+                painter.setPen(QPen(QColor(180, 100, 240, 100), 1));
+                painter.drawRoundedRect(tagRect, 5, 5);
+                painter.setPen(QColor(200, 160, 255, 220));
+                painter.drawText(tagRect, Qt::AlignCenter, "⚔ 敌方");
             }
 
-            // 我方标签 (左下) — 蓝色标签背景
+            // 我方标签 (左下) — 蓝晶徽章
             {
-                QRect tagRect(4, height() - 22, 80, 18);
-                painter.setBrush(QColor(50, 80, 180, 100));
-                painter.setPen(Qt::NoPen);
-                painter.drawRoundedRect(tagRect, 4, 4);
-                painter.setPen(QColor(140, 200, 255, 220));
-                painter.drawText(tagRect, Qt::AlignCenter, "🛡 我方区域");
+                QRect tagRect(6, height() - 26, 72, 20);
+                painter.setBrush(QColor(40, 80, 200, 70));
+                painter.setPen(QPen(QColor(80, 140, 255, 100), 1));
+                painter.drawRoundedRect(tagRect, 5, 5);
+                painter.setPen(QColor(160, 200, 255, 220));
+                painter.drawText(tagRect, Qt::AlignCenter, "🛡 我方");
             }
         }
 
-        // ===== 第6层：网格线（极淡） =====
+        // ===== 第6层：网格线（极暗，衬托魔法感） =====
         {
-            painter.setPen(QPen(QColor(100, 90, 75, 40), 1));
+            painter.setPen(QPen(QColor(60, 55, 80, 25), 1));
             for (int r = 0; r <= rows; ++r)
             {
                 int y = r * cellH;
@@ -381,17 +350,17 @@ namespace synera
             }
         }
 
-        // ===== 第6层：高亮 =====
+        // ===== 第7层：高亮 =====
         for (const auto& [hlPos, hlColor] : m_highlights)
         {
             QRect cellRect(hlPos.y * cellW, hlPos.x * cellH, cellW, cellH);
             QPixmap* hlTex = &hlMove;
-            if (hlColor == QColor(80, 200, 200, 80)) hlTex = &hlSelect;
+            if (hlColor == QColor(100, 200, 100, 60)) hlTex = &hlMove;
             else if (hlColor == QColor(255, 80, 80, 60)) hlTex = &hlAttack;
             painter.drawPixmap(cellRect, *hlTex);
         }
 
-        // ===== 第7层：绘制已部署的单位 =====
+        // ===== 第8层：绘制已部署的单位 =====
         for (int r = 0; r < rows; ++r)
             for (int c = 0; c < cols; ++c)
             {
@@ -414,7 +383,7 @@ namespace synera
                 DrawUnitAt(painter, unit, cellRect, cellW, cellH);
             }
 
-        // ===== 第8层：动画中的单位 =====
+        // ===== 第9层：动画中的单位 =====
         // 部署动画
         if (m_deployAnim.active && m_deployAnim.unit)
         {
@@ -443,7 +412,7 @@ namespace synera
             DrawUnitAt(painter, ma.unit, cellRect, s, s);
         }
 
-        // ===== 第9层：攻击闪光特效 =====
+        // ===== 第10层：攻击闪光特效 =====
         for (auto& flash : m_attackFlashes)
         {
             float alpha = 1.0f - flash.progress;
@@ -485,11 +454,10 @@ namespace synera
             }
         }
 
-        // ===== 第10层：部署空位提示 =====
+        // ===== 第11层：部署空位提示（备战阶段） =====
         if (m_gameManager.GetCurrentPhase() == GamePhase::Preparation)
         {
-            // 在空的己方半场格子上画淡绿色边框表示可部署
-            painter.setPen(QPen(QColor(100, 200, 100, 120), 2));
+            painter.setPen(QPen(QColor(60, 160, 255, 100), 2));
             for (int r = halfRow; r < rows; ++r)
                 for (int c = 0; c < cols; ++c)
                 {
@@ -497,13 +465,13 @@ namespace synera
                     if (!board.IsOccupied(pos))
                     {
                         QRect cr(c * cellW, r * cellH, cellW, cellH);
-                        painter.setBrush(QColor(80, 180, 80, 40));
+                        painter.setBrush(QColor(50, 140, 255, 30));
                         painter.drawRoundedRect(cr.adjusted(3, 3, -3, -3), 6, 6);
-                        // 角落装饰线
-                        painter.setPen(QPen(QColor(80, 200, 80, 80), 1));
+                        // 角落装饰十字
+                        painter.setPen(QPen(QColor(60, 160, 255, 60), 1));
                         int m = 8;
                         int cx = cr.center().x(), cy = cr.center().y();
-                        painter.drawLine(cx - m, cy, cx + m, cy);  // 十字
+                        painter.drawLine(cx - m, cy, cx + m, cy);
                         painter.drawLine(cx, cy - m, cx, cy + m);
                     }
                 }
@@ -543,8 +511,8 @@ namespace synera
         else
         {
             QColor unitColor = (unit->GetOwner() == Owner::PlayerCtrl)
-                               ? QColor(50, 150, 255, 200)
-                               : QColor(255, 80, 80, 200);
+                               ? QColor(60, 140, 255, 200)
+                               : QColor(180, 60, 200, 200);
             painter.setBrush(unitColor);
             painter.setPen(Qt::NoPen);
             painter.drawEllipse(uRect);
@@ -596,12 +564,12 @@ namespace synera
             int barX = uRect.center().x() - barW / 2;
             int barY = uRect.bottom() - barH - 1;
 
-            painter.setBrush(QColor(40, 40, 40, 180));
+            painter.setBrush(QColor(35, 30, 40, 200));
             painter.setPen(Qt::NoPen);
             painter.drawRect(barX, barY, barW, barH);
 
-            QColor hpColor = (hpRatio > 0.5f) ? QColor(50, 200, 50) :
-                             (hpRatio > 0.25f) ? QColor(220, 200, 30) : QColor(220, 40, 40);
+            QColor hpColor = (hpRatio > 0.5f) ? QColor(50, 220, 50) :
+                             (hpRatio > 0.25f) ? QColor(230, 200, 30) : QColor(230, 40, 40);
             painter.setBrush(hpColor);
             painter.drawRect(barX, barY, static_cast<int>(barW * hpRatio), barH);
         }
@@ -615,11 +583,14 @@ namespace synera
             int barX = uRect.center().x() - barW / 2;
             int barY = uRect.bottom() - barH - 6;
 
-            painter.setBrush(QColor(30, 30, 80, 160));
+            painter.setBrush(QColor(25, 20, 60, 180));
             painter.setPen(Qt::NoPen);
             painter.drawRect(barX, barY, barW, barH);
 
-            painter.setBrush(QColor(80, 120, 255));
+            QLinearGradient manaGrad(barX, 0, barX + barW, 0);
+            manaGrad.setColorAt(0, QColor(60, 140, 255));
+            manaGrad.setColorAt(1, QColor(100, 180, 255));
+            painter.setBrush(manaGrad);
             painter.drawRect(barX, barY, static_cast<int>(barW * manaRatio), barH);
         }
 

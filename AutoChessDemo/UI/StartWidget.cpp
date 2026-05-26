@@ -17,6 +17,9 @@ namespace synera
     StartWidget::StartWidget(QWidget* parent)
         : QWidget(parent)
     {
+        // 透明背景 — 让 CentralWrapper 的背景图统一显示
+        setAttribute(Qt::WA_TranslucentBackground);
+
         // 按钮样式 — 暗紫渐变，与游戏主题一致
         const QString btnStyle =
             "QPushButton {"
@@ -86,25 +89,8 @@ namespace synera
         painter.setRenderHint(QPainter::SmoothPixmapTransform);
         painter.setRenderHint(QPainter::Antialiasing);
 
-        // ===== 背景 =====
-        if (!m_background.isNull())
-        {
-            QPixmap scaled = m_background.scaled(size(), Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
-            int bx = (width() - scaled.width()) / 2;
-            int by = (height() - scaled.height()) / 2;
-            painter.drawPixmap(bx, by, scaled);
-            // 半透明暗色遮罩，略加深以突出文字
-            painter.fillRect(rect(), QColor(10, 8, 18, 120));
-        }
-        else
-        {
-            QLinearGradient bgGrad(0, 0, width(), height());
-            bgGrad.setColorAt(0, QColor(18, 14, 32));
-            bgGrad.setColorAt(0.4, QColor(26, 20, 48));
-            bgGrad.setColorAt(0.7, QColor(34, 26, 56));
-            bgGrad.setColorAt(1, QColor(16, 12, 28));
-            painter.fillRect(rect(), bgGrad);
-        }
+        // ===== 背景 — 不绘制，由 CentralWrapper 统一渲染背景图+遮罩 =====
+        // 透明背景让 CentralWrapper 的背景图一致显示，避免两层叠加产生色块
 
         // ===== 顶部装饰光晕 =====
         {

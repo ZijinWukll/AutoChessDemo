@@ -20,6 +20,11 @@ AutoChessDemo::AutoChessDemo(QWidget *parent)
 {
     ui.setupUi(this);
 
+    // 隐藏菜单栏、工具栏和状态栏（.ui文件中定义的，全屏下不需要）
+    ui.mainToolBar->hide();
+    menuBar()->hide();
+    statusBar()->hide();
+
     // 初始化游戏核心
     m_gameManager.Initialize();
 
@@ -282,9 +287,8 @@ void AutoChessDemo::SetupStartScreen()
     m_gameContainer = new QWidget(m_stackedWidget);
     m_stackedWidget->addWidget(m_gameContainer);
 
-    // 将开始界面背景图也加载到 wrapper 中（全屏 letterbox 使用）
+    // CentralWrapper 加载背景图供全屏 letterbox 和透明 StartWidget 使用
     m_centralWrapper->loadBackground(":/AutoChessDemo/assets/ui/start_bg.png");
-    m_startWidget->SetBackgroundImage(":/AutoChessDemo/assets/ui/start_bg.png");
 
     m_stackedWidget->setCurrentIndex(0);
 
@@ -372,7 +376,7 @@ void AutoChessDemo::SetupGameUI()
     // 右侧：单位详情 + 确认购买按钮
     QVBoxLayout* rightPanel = new QVBoxLayout();
     m_unitInfoWidget = new UnitInfoWidget(this);
-    rightPanel->addWidget(m_unitInfoWidget);
+    rightPanel->addWidget(m_unitInfoWidget, 1); // 拉伸填满高度，与左侧棋盘等高
 
     // 确认购买按钮（默认隐藏，点击商店单位后显示）
     m_confirmPurchaseBtn = new QPushButton("确认购买", this);
@@ -385,11 +389,11 @@ void AutoChessDemo::SetupGameUI()
     connect(m_confirmPurchaseBtn, &QPushButton::clicked, this, &AutoChessDemo::OnConfirmPurchase);
     rightPanel->addWidget(m_confirmPurchaseBtn);
 
-    rightPanel->addStretch();
+    // rightStretch 已移除 — UnitInfoWidget 用 stretch=1 填满与棋盘等高
 
     QWidget* rightContainer = new QWidget(this);
     rightContainer->setLayout(rightPanel);
-    rightContainer->setFixedWidth(220);
+    rightContainer->setFixedWidth(250);
     mainSplitter->addWidget(rightContainer);
 
     mainLayout->addWidget(mainSplitter, 1); // stretch = 1
