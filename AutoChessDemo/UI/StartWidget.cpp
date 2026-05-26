@@ -176,7 +176,7 @@ namespace synera
 
             float subTextX = width() / 2.0f;
             float subHalfW = painter.fontMetrics().horizontalAdvance("SYNERGY AUTO-ARENA") / 2.0f;
-            float subBaseline = titleY + titleFont.pixelSize() / 2 + 80 + subFont.pixelSize() * 0.35f;
+            float subBaseline = titleY + titleFont.pixelSize() / 2 + 120 + subFont.pixelSize() * 0.35f;
 
             // 副标题暗色描边
             QPainterPath subGlow;
@@ -198,7 +198,7 @@ namespace synera
             subGrad.setColorAt(1, QColor(180, 160, 225));
             painter.setPen(QPen(subGrad, 1));
             painter.setBrush(subGrad);
-            painter.drawText(QRect(0, titleY + titleFont.pixelSize() / 2 + 80,
+            painter.drawText(QRect(0, titleY + titleFont.pixelSize() / 2 + 120,
                                    width(), subFont.pixelSize() + 10),
                              Qt::AlignCenter, "SYNERGY AUTO-ARENA");
         }
