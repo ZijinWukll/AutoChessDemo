@@ -13,7 +13,7 @@ namespace synera
         QMap<std::string, QString> texMap = {
             {"步兵", "warrior"}, {"弓箭手", "archer"}, {"法师", "mage"},
             {"治疗师", "healer"}, {"骑士", "knight"}, {"刺客", "assassin"},
-            {"狂战士", "tank"}, {"狙击手", "archer"}, {"侍从", "knight"},
+            {"狂战士", "tank"}, {"狙击手", "sniper"}, {"侍从", "squire"},
             {"Boss", "boss"}
         };
         auto it = texMap.find(unitName);
@@ -128,8 +128,8 @@ namespace synera
                 QRect uRect = slotRect.adjusted(4, 4, -4, -4);
                 int count = CountSameNameStar(unit->GetName(), unit->GetStarLevel());
 
-                // 合星提示框：如果 >= 2 个同名同星，加金色边框带外发光
-                if (count >= 2)
+                // 合星提示框：如果 >= 2 个同名同星且非满星（三星已是上限），加金色边框带外发光
+                if (count >= 2 && unit->GetStarLevel() != StarLevel::Three)
                 {
                     int flash = (static_cast<int>(QDateTime::currentMSecsSinceEpoch() / 500) % 2);
                     // 外发光
@@ -177,16 +177,20 @@ namespace synera
                     painter.drawEllipse(bgRect);
                 }
 
-                // 加载单位贴图
+                // 加载单位贴图（2x 头部特写，裁剪到槽位内）
                 QString texPath = GetUnitTexture(unit->GetName());
                 QPixmap unitTex(texPath);
                 if (!unitTex.isNull())
                 {
-                    int size = qMin(uRect.width(), uRect.height()) - 8;
-                    QPixmap scaled = unitTex.scaled(size, size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+                    int size = qMin(uRect.width(), uRect.height()) - 2;
+                    QPixmap big = unitTex.scaled(size * 2, size * 2, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+                    QPixmap scaled = big.copy(0, 0, big.width(), big.height() / 2);
                     int x = uRect.center().x() - scaled.width() / 2;
-                    int y = uRect.top() + 8;
+                    int y = uRect.top() + 2;
+                    painter.save();
+                    painter.setClipRect(slotRect);
                     painter.drawPixmap(x, y, scaled);
+                    painter.restore();
                 }
                 else
                 {
@@ -195,7 +199,7 @@ namespace synera
                     painter.drawRoundedRect(uRect, 8, 8);
                 }
 
-                // 名称
+                // 名称（备战区只显示名字）
                 painter.setPen(Qt::white);
                 QFont nf2 = painter.font();
                 nf2.setPointSize(8);
@@ -220,22 +224,6 @@ namespace synera
                     painter.drawRoundedRect(badge, 3, 3);
                     painter.setPen(QColor(40, 30, 0));
                     painter.drawText(badge, Qt::AlignCenter, starLabel);
-                }
-
-                // 血条
-                if (unit->GetMaxHp() > 0)
-                {
-                    float hpRatio = static_cast<float>(unit->GetHp()) / unit->GetMaxHp();
-                    int barW = uRect.width() - 10;
-                    int barH = 3;
-                    int barX = uRect.center().x() - barW / 2;
-                    int barY = uRect.bottom() - 18;
-                    painter.setBrush(QColor(60, 60, 60, 150));
-                    painter.setPen(Qt::NoPen);
-                    painter.drawRect(barX, barY, barW, barH);
-                    QColor hpC = (hpRatio > 0.5f) ? QColor(50, 200, 50) : QColor(220, 200, 30);
-                    painter.setBrush(hpC);
-                    painter.drawRect(barX, barY, static_cast<int>(barW * hpRatio), barH);
                 }
             }
         }

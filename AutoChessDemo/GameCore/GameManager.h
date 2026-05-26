@@ -17,6 +17,14 @@
 
 namespace synera
 {
+    // 战斗结算结果
+    enum class CombatResult
+    {
+        PlayerWin,  // 玩家胜利
+        EnemyWin,   // 敌方胜利（玩家扣血）
+        Draw        // 平局（双方全灭，不扣血）
+    };
+
     // 游戏管理器：顶层单例，负责管理游戏状态、阶段切换和各子系统协调。
     // 是整个游戏的"大脑"，UI 层通过它与游戏核心交互。
     class GameManager
@@ -120,12 +128,14 @@ namespace synera
         std::vector<AttackEvent> m_recentAttackEvents;
 
         // ---- 战斗结果 ----
-        bool m_lastCombatResult = false;
+        CombatResult m_lastCombatResult = CombatResult::EnemyWin;
         bool m_gameOver = false;    // 游戏失败（HP=0 或第15波失败）
         bool m_gameWon = false;     // 游戏通关（打完第15波全部）
+        int m_lastCombatDamage = 0; // 最近一次战斗对玩家造成的扣血量
 
     public:
-        bool GetLastCombatResult() const { return m_lastCombatResult; }
+        CombatResult GetLastCombatResult() const { return m_lastCombatResult; }
+        int GetLastCombatDamage() const { return m_lastCombatDamage; }
         bool IsGameOver() const { return m_gameOver; }
         bool IsGameWon() const { return m_gameWon; }
 
@@ -133,8 +143,8 @@ namespace synera
         const std::vector<AttackEvent>& GetRecentAttackEvents() const { return m_recentAttackEvents; }
 
         // ---- 内部函数 ----
-        // #TODO: 战斗结束后的处理（扣血、发放金币、掉落装备）
-        void OnCombatEnd(bool playerWon);
+        // 战斗结束后的处理（扣血、发放金币、掉落装备、复活阵亡单位）
+        void OnCombatEnd(CombatResult result);
 
         // 战斗前给己方单位应用羁绊加成
         void ApplySynergyBonuses();
@@ -142,10 +152,7 @@ namespace synera
         // #TODO: 进入下一波
         void NextWave();
 
-        // 战后重置己方单位：按血量排序在我方半场首行排开
+        // 战后重置己方单位：全部满血复活并按血量排序在我方半场首行排开
         void ResetPlayerUnitsAfterCombat();
-
-        // 战败后：将越界的敌方存活单位移回敌方半场首行
-        void RepositionSurvivingEnemies();
     };
 }

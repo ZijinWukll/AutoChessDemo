@@ -98,9 +98,11 @@ private:
 
     QTimer* m_timer = nullptr;          // 60fps 定时器
 
-    // ---- 拖拽预览 ----
-    QLabel* m_dragPreview = nullptr;    // 跟随鼠标的浮动单位预览
-    QPixmap m_dragPreviewCache;         // 缓存的拖拽预览图（避免每帧重绘）
+    // ---- 拖拽预览（终极优化：DragOverlay 静态覆盖层，不触发父级重绘） ----
+    class DragOverlay;                  // 前置声明
+    DragOverlay* m_dragOverlay = nullptr; // 静态覆盖层（非 QLabel，无 move/raise 开销）
+    QPixmap m_dragPreviewCache;         // 缓存的完整预览图（边框+贴图+星级）
+    QPixmap m_dragUnitCache;            // 预缓存的单位贴图（拖拽开始时渲染一次，避免每帧 PNG 加载+缩放）
     bool m_dragPreviewOverBoard = false; // 上一帧是否在棋盘上方（检测变化）
     bool m_dragPreviewValidSpot = false; // 上一帧放置位是否有效
     static constexpr int DRAG_PREVIEW_SIZE = 96;
@@ -112,6 +114,8 @@ private:
         int slotIndex = -1;             // 来源备战区槽位（bench 拖拽）
         int boardRow = -1;              // 来源棋盘坐标（棋盘拖拽）
         int boardCol = -1;
+        int hoverRow = -1;              // 上一帧悬停棋盘行（避免重复高亮重绘）
+        int hoverCol = -1;              // 上一帧悬停棋盘列
         std::shared_ptr<Unit> unit;     // 拖拽的单位
     };
     DragInfo m_dragInfo;

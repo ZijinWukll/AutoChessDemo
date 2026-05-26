@@ -14,16 +14,18 @@ namespace synera
         QMap<std::string, QString> texMap = {
             {"步兵", "warrior"}, {"弓箭手", "archer"}, {"法师", "mage"},
             {"治疗师", "healer"}, {"骑士", "knight"}, {"刺客", "assassin"},
-            {"狂战士", "tank"}, {"狙击手", "archer"}, {"侍从", "knight"},
+            {"狂战士", "tank"}, {"狙击手", "sniper"}, {"侍从", "squire"},
             {"Boss", "boss"}
         };
         if (unitName == "Soldier" || unitName == "步兵") texMap[unitName] = "warrior";
         if (unitName == "Archer" || unitName == "弓箭手") texMap[unitName] = "archer";
         if (unitName == "Mage" || unitName == "法师") texMap[unitName] = "mage";
         if (unitName == "Healer" || unitName == "治疗师") texMap[unitName] = "healer";
-        if (unitName == "Knight" || unitName == "骑士" || unitName == "侍从") texMap[unitName] = "knight";
+        if (unitName == "Knight" || unitName == "骑士") texMap[unitName] = "knight";
+        if (unitName == "Squire" || unitName == "侍从") texMap[unitName] = "squire";
         if (unitName == "Assassin" || unitName == "刺客") texMap[unitName] = "assassin";
         if (unitName == "Berserker" || unitName == "狂战士") texMap[unitName] = "tank";
+        if (unitName == "Sniper" || unitName == "狙击手") texMap[unitName] = "sniper";
 
         auto it = texMap.find(unitName);
         if (it != texMap.end())
@@ -486,16 +488,18 @@ namespace synera
         if (isDragged)
             painter.setOpacity(0.35f);
 
-        int margin = 3;
+        int margin = 1;
         QRect uRect = cellRect.adjusted(margin, margin, -margin, -margin);
-        int size = qMin(uRect.width(), uRect.height());
+        int cellSize = qMin(uRect.width(), uRect.height());
 
         // 加载 sprite
         QString texPath = GetUnitTexture(unit->GetName());
         QPixmap unitTex(texPath);
         if (!unitTex.isNull())
         {
-            QPixmap scaled = unitTex.scaled(size, size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+            // 棋盘区域：2x 放大取上半部分（头部特写），裁剪到格子内
+            QPixmap big = unitTex.scaled(cellSize * 2, cellSize * 2, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+            QPixmap scaled = big.copy(0, 0, big.width(), big.height() / 2);
 
             if (unit->GetOwner() == Owner::EnemyCtrl)
             {
@@ -506,7 +510,12 @@ namespace synera
 
             int x = uRect.center().x() - scaled.width() / 2;
             int y = uRect.center().y() - scaled.height() / 2;
+
+            // 裁剪到格子范围，防止放大溢出到相邻格
+            painter.save();
+            painter.setClipRect(cellRect);
             painter.drawPixmap(x, y, scaled);
+            painter.restore();
         }
         else
         {
@@ -595,7 +604,7 @@ namespace synera
         }
 
         // 名称
-        if (size > 30)
+        if (cellSize > 30)
         {
             painter.setPen(QColor(255, 255, 255, 200));
             QFont nf = painter.font();

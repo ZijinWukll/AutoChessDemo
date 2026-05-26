@@ -8,7 +8,7 @@
 
 ## 快速开始（Release）
 
-从 [GitHub Releases](https://github.com/ZijinWukll/AutoChessDemo/releases) 下载最新版本的 `Synera-v4.2.zip` 压缩包。
+从 [GitHub Releases](https://github.com/ZijinWukll/AutoChessDemo/releases) 下载最新版本的 `Synera-v4.3.zip` 压缩包。
 
 1. 将下载的 ZIP 压缩包**完整解压**到一个文件夹（不要直接拖出 exe）
 2. 进入文件夹，双击 **SYNERA.exe** 即可开玩
@@ -128,7 +128,6 @@ windeployqt SYNERA.exe
 - 胜利金币：前 10 轮 **波数 × 2**，第 11 轮起 **波数 × 2 + 5**
 - 失败补偿：**当前波数 × 2 + 5**
 - 失败扣血：**当前波数 × 4**
-- HP 恢复：胜利且 HP≠100 时，恢复 **当前波数 × 2**
 - 出售返还：费用 × 星级倍率（1★×1、2★×3、3★×9）
 
 ### 合星系统
@@ -249,6 +248,16 @@ AutoChessDemo/
   - 窗口行为优化：启动全屏无初始窗口，任务栏恢复保持原状态
   - 帧率无关战斗引擎：冷却系统从帧计数改为 deltaTime，插电/离电速度一致
   - 代码重构：CentralWrapper 包装器管理宽高比，nativeEvent 拦截最大化消息无闪烁
+- **v4.3 更新**：
+  - CombatResult 三态枚举：玩家胜利 / 敌方胜利 / 平局，平局双方不扣血
+  - 战争迷雾：战斗结束后无论胜负，所有敌方单位从棋盘清除
+  - 全新角色贴图：全部 10 个角色重新绘制的高清透明 PNG，旧版占位图全部删除
+  - 区域差异化显示：棋盘/备战区/商店使用头部特写（2x/4x 放大取上半部），右侧详情面板使用全身完整图（+20%）
+  - DragOverlay 拖拽覆盖层：透明 widget 替代 QLabel 悬浮窗口，零 widget move/raise 开销，彻底消除拖拽卡顿与残影
+  - 拖拽热路径精简：每帧减少 4 次冗余重绘（SetDragZoneHighlight、setCursor、棋盘悬停、合星高亮），悬停格子缓存避免高频刷新
+  - 三星合星提示抑制：三星已是上限，不再触发合星高亮
+  - 文字修正：游戏结束 → 游戏失败，通关 → 游戏通关
+  - 胜利不回血：HP 只减不增，胜利不再恢复玩家生命值
 
 ---
 

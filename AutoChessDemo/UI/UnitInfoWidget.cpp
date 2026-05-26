@@ -13,7 +13,7 @@ namespace synera
         QMap<std::string, QString> texMap = {
             {"步兵", "warrior"}, {"弓箭手", "archer"}, {"法师", "mage"},
             {"治疗师", "healer"}, {"骑士", "knight"}, {"刺客", "assassin"},
-            {"狂战士", "tank"}, {"狙击手", "archer"}, {"侍从", "knight"},
+            {"狂战士", "tank"}, {"狙击手", "sniper"}, {"侍从", "squire"},
             {"Boss", "boss"}
         };
         auto it = texMap.find(unitName);
@@ -181,7 +181,7 @@ namespace synera
         QPixmap unitTex(texPath);
         if (!unitTex.isNull())
         {
-            int imgSize = qMin(width() - 40, 130);
+            int imgSize = qMin(width() - 40, 156);  // 130 × 1.2 = 156
             QPixmap scaled = unitTex.scaled(imgSize, imgSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
 
             // 图片背景柔光
@@ -215,7 +215,7 @@ namespace synera
                 painter.drawText(badge, Qt::AlignCenter, starLabel);
             }
 
-            y += scaled.height() + 14;
+            y += scaled.height() + 28;
         }
 
         // ===== 名称 =====

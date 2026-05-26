@@ -70,7 +70,7 @@ namespace synera
         layout->addStretch(1);
 
         // 版本信息
-        QLabel* versionLabel = new QLabel("v4.2", this);
+        QLabel* versionLabel = new QLabel("v4.3", this);
         versionLabel->setStyleSheet("color: #605878; font-size: 11px; padding: 8px;");
         versionLabel->setAlignment(Qt::AlignCenter);
         layout->addWidget(versionLabel, 0, Qt::AlignCenter);

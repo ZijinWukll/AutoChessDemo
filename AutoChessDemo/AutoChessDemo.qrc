@@ -2,20 +2,15 @@
     <qresource prefix="AutoChessDemo">
         <!-- 单位精灵 -->
         <file>assets/units/warrior.png</file>
-        <file>assets/units/warrior_attack.png</file>
-        <file>assets/units/warrior_hurt.png</file>
         <file>assets/units/archer.png</file>
-        <file>assets/units/archer_attack.png</file>
         <file>assets/units/mage.png</file>
-        <file>assets/units/mage_attack.png</file>
         <file>assets/units/healer.png</file>
         <file>assets/units/knight.png</file>
-        <file>assets/units/knight_attack.png</file>
         <file>assets/units/assassin.png</file>
-        <file>assets/units/assassin_attack.png</file>
         <file>assets/units/tank.png</file>
+        <file>assets/units/sniper.png</file>
+        <file>assets/units/squire.png</file>
         <file>assets/units/boss.png</file>
-        <file>assets/units/boss_attack.png</file>
 
         <!-- UI 按钮 -->
         <file>assets/ui/buttons/btn_combat.png</file>

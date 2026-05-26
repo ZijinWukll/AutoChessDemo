@@ -8,6 +8,56 @@
 #include <QApplication>
 #include <QScreen>
 #include <QCursor>
+#include <QResizeEvent>
+
+// ===== DragOverlay：终极拖拽预览覆盖层 =====
+// 不移动 widget、不触发父级重绘、零延迟跟随鼠标
+class AutoChessDemo::DragOverlay : public QWidget
+{
+public:
+    explicit DragOverlay(QWidget* parent)
+        : QWidget(parent)
+    {
+        setAttribute(Qt::WA_TransparentForMouseEvents);
+        setAttribute(Qt::WA_TranslucentBackground);
+    }
+
+    QPixmap pixmap;
+    QPoint drawPos;
+    bool showing = false;
+
+    void showAt(const QPixmap& px, const QPoint& pos)
+    {
+        pixmap = px;
+        drawPos = QPoint(pos.x() - 48, pos.y() - 48);
+        showing = true;
+        update();
+    }
+
+    void moveTo(const QPoint& pos)
+    {
+        drawPos = QPoint(pos.x() - 48, pos.y() - 48);
+        update(); // 全区域刷新，overlay 只画一个小图，开销可忽略
+    }
+
+    void hideOverlay()
+    {
+        if (showing)
+        {
+            showing = false;
+            update();
+        }
+    }
+
+protected:
+    void paintEvent(QPaintEvent*) override
+    {
+        if (!showing || pixmap.isNull()) return;
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing);
+        p.drawPixmap(drawPos, pixmap);
+    }
+};
 #include <QMessageBox>
 #include <QIcon>
 #include <QPainter>
@@ -478,6 +528,12 @@ void AutoChessDemo::SetupGameUI()
     setMouseTracking(true);
     m_boardWidget->setMouseTracking(true);
     m_benchWidget->setMouseTracking(true);
+
+    // ---- 创建拖拽覆盖层（DragOverlay：不移动 widget，直接 paint，零延迟） ----
+    m_dragOverlay = new DragOverlay(m_gameContainer);
+    m_dragOverlay->setGeometry(m_gameContainer->rect());
+    m_dragOverlay->show();
+    m_gameContainer->installEventFilter(this);  // 监听 resize 同步覆盖层尺寸
 }
 
 // ========== 游戏循环 ==========
@@ -494,9 +550,12 @@ void AutoChessDemo::OnTick()
     // 更新动画
     m_boardWidget->UpdateAnimations();
 
-    // 刷新 UI 显示（备战区合星、购买等操作后立即反映）
-    m_boardWidget->update();
-    m_benchWidget->update();
+    // 刷新 UI 显示（拖拽时 board/bench 已由 eventFilter 触发，不再冗余更新）
+    if (!m_dragInfo.active)
+    {
+        m_boardWidget->update();
+        m_benchWidget->update();
+    }
 
     // 更新状态栏（用 HTML 加颜色）
     auto phase = m_gameManager.GetCurrentPhase();
@@ -587,35 +646,62 @@ void AutoChessDemo::OnTick()
     // 检测战斗结束（从 Combat 切换到 Preparation）
     if (prevPhase == synera::GamePhase::Combat && phase == synera::GamePhase::Preparation)
     {
-        bool won = m_gameManager.GetLastCombatResult();
+        auto result = m_gameManager.GetLastCombatResult();
         int wave = m_gameManager.GetCurrentWave() - 1;  // 已经打完的波次
 
         // 非终局的正常胜负结果（终局结果统一在下方独立检测）
         if (!m_gameManager.IsGameOver() && !m_gameManager.IsGameWon())
         {
-            // 注意：wave 是已经打完的第 N 波，所以实际扣血是按 wave+1 算
             int actualWave = wave + 1;
-            // 普通胜负（第 1-14 波）
-            int goldReward = actualWave * 2 + (actualWave >= 11 ? 5 : 0);
 
-            m_combatResultText = won
-                ? QString("🎉 第 %1 波 胜利！获得 %2 金币").arg(actualWave).arg(goldReward)
-                : QString("💀 第 %1 波 失败！损失 %2 生命值").arg(actualWave).arg(actualWave * 4);
-
-            // 播放战斗结果音效
-            if (won) synera::AudioManager::PlayVictory();
-            else synera::AudioManager::PlayDefeat();
-
-            // 设置棋盘中央覆盖层
-            if (m_combatResultOverlay)
+            switch (result)
             {
-                QString title = won ? "胜  利" : "失  败";
-                QString color = won ? "#4ade80" : "#f87171";
-                m_combatResultOverlay->setStyleSheet(QString(
-                    "background: rgba(0,0,0,200); color: %1; font-size: 32px; font-weight: bold; "
-                    "border: 3px solid %1; border-radius: 15px; padding: 10px;").arg(color));
-                m_combatResultOverlay->setText(title);
-                m_combatResultOverlay->show();
+            case synera::CombatResult::PlayerWin:
+            {
+                int goldReward = actualWave * 2 + (actualWave >= 11 ? 5 : 0);
+                m_combatResultText = QString("🎉 第 %1 波 胜利！获得 %2 金币").arg(actualWave).arg(goldReward);
+                synera::AudioManager::PlayVictory();
+
+                if (m_combatResultOverlay)
+                {
+                    m_combatResultOverlay->setStyleSheet(
+                        "background: rgba(0,0,0,200); color: #4ade80; font-size: 32px; font-weight: bold; "
+                        "border: 3px solid #4ade80; border-radius: 15px; padding: 10px;");
+                    m_combatResultOverlay->setText("胜  利");
+                    m_combatResultOverlay->show();
+                }
+                break;
+            }
+            case synera::CombatResult::EnemyWin:
+            {
+                int dmg = m_gameManager.GetLastCombatDamage();
+                m_combatResultText = QString("💀 第 %1 波 失败！损失 %2 生命值").arg(actualWave).arg(dmg);
+                synera::AudioManager::PlayDefeat();
+
+                if (m_combatResultOverlay)
+                {
+                    m_combatResultOverlay->setStyleSheet(
+                        "background: rgba(0,0,0,200); color: #f87171; font-size: 32px; font-weight: bold; "
+                        "border: 3px solid #f87171; border-radius: 15px; padding: 10px;");
+                    m_combatResultOverlay->setText("失  败");
+                    m_combatResultOverlay->show();
+                }
+                break;
+            }
+            case synera::CombatResult::Draw:
+            {
+                m_combatResultText = QString("🤝 第 %1 波 平局！未损失生命值").arg(actualWave);
+
+                if (m_combatResultOverlay)
+                {
+                    m_combatResultOverlay->setStyleSheet(
+                        "background: rgba(0,0,0,200); color: #ffd700; font-size: 32px; font-weight: bold; "
+                        "border: 3px solid #ffd700; border-radius: 15px; padding: 10px;");
+                    m_combatResultOverlay->setText("平  局");
+                    m_combatResultOverlay->show();
+                }
+                break;
+            }
             }
 
             m_combatResultEndTime = QDateTime::currentMSecsSinceEpoch() + 3000;  // 显示 3 秒
@@ -626,8 +712,8 @@ void AutoChessDemo::OnTick()
     // 终局检测：独立于 phase 切换，确保 HP=0 / 通关后立即弹出结果
     if (m_gameManager.IsGameOver() && m_combatResultEndTime == 0)
     {
-        // 游戏结束 — 显示结束字样，3 秒后自动关闭
-        m_combatResultText = "💀 游戏结束！点击窗口任意位置关闭";
+        // 游戏失败 — 显示失败字样，3 秒后自动关闭
+        m_combatResultText = "💀 游戏失败！点击窗口任意位置关闭";
         m_tipLabel->setText(m_combatResultText);
         synera::AudioManager::PlayDefeat();
 
@@ -636,7 +722,7 @@ void AutoChessDemo::OnTick()
             m_combatResultOverlay->setStyleSheet(
                 "background: rgba(0,0,0,200); color: #f87171; font-size: 32px; font-weight: bold; "
                 "border: 3px solid #f87171; border-radius: 15px; padding: 10px;");
-            m_combatResultOverlay->setText("游 戏 结 束");
+            m_combatResultOverlay->setText("游 戏 失 败");
             m_combatResultOverlay->show();
         }
         m_combatResultEndTime = QDateTime::currentMSecsSinceEpoch() + 3000;
@@ -692,17 +778,21 @@ void AutoChessDemo::OnTick()
                 m_tipLabel->setText("💡 拖拽备战区单位到棋盘部署 | 右键备战区出售 | 商店购买增强阵容");
         }
 
-        // 备战区合星高亮
-        m_benchWidget->update();
+        // 备战区合星高亮（拖拽期间跳过）
+        if (!m_dragInfo.active)
+            m_benchWidget->update();
     }
     else
     {
         m_tipLabel->setText("⚔ 战斗中，请等待战斗结束...");
     }
 
-    // 重绘 UI
-    m_boardWidget->update();
-    m_benchWidget->update();
+    // 重绘 UI（拖拽时跳过 board/bench 冗余重绘）
+    if (!m_dragInfo.active)
+    {
+        m_boardWidget->update();
+        m_benchWidget->update();
+    }
     m_shopWidget->update();
     m_unitInfoWidget->update();
 }
@@ -801,12 +891,6 @@ void AutoChessDemo::OnBenchSlotClicked(int index)
 
     // 立即进入拖拽状态，无需等待鼠标移动
     UpdateDragPreview(QCursor::pos());
-    if (m_dragPreview)
-    {
-        QPoint gp = QCursor::pos();
-        m_dragPreview->move(gp.x() - DRAG_PREVIEW_SIZE / 2,
-                             gp.y() - DRAG_PREVIEW_SIZE / 2);
-    }
     setCursor(Qt::ClosedHandCursor);
     m_boardWidget->SetDragZoneHighlight(true);
 }
@@ -1117,27 +1201,12 @@ void AutoChessDemo::RebuildDragPreview(bool overBoard, bool validSpot)
                    validSpot ? "✓" : "✗");
     }
 
-    // ---- 单位贴图 ----
-    auto texPath = [&]() -> QString {
-        const auto& name = m_dragInfo.unit->GetName();
-        QMap<std::string, QString> texMap = {
-            {"步兵", "warrior"}, {"弓箭手", "archer"}, {"法师", "mage"},
-            {"治疗师", "healer"}, {"骑士", "knight"}, {"刺客", "assassin"},
-            {"狂战士", "tank"}, {"狙击手", "archer"}, {"侍从", "knight"},
-            {"Boss", "boss"}
-        };
-        auto iter = texMap.find(name);
-        if (iter != texMap.end())
-            return QString(":/AutoChessDemo/assets/units/%1.png").arg(iter.value());
-        return ":/AutoChessDemo/assets/units/warrior.png";
-    }();
-    QPixmap px(texPath);
-    if (!px.isNull())
+    // ---- 单位贴图（使用预缓存，避免每帧 PNG 加载+缩放） ----
+    if (!m_dragUnitCache.isNull())
     {
-        QPixmap scaled = px.scaled(64, 64, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-        int sx = (ps - scaled.width()) / 2;
-        int sy = (ps - scaled.height()) / 2 - 2;
-        p.drawPixmap(sx, sy, scaled);
+        int sx = (ps - m_dragUnitCache.width()) / 2;
+        int sy = (ps - m_dragUnitCache.height()) / 2 - 2;
+        p.drawPixmap(sx, sy, m_dragUnitCache);
     }
 
     // ---- 星级标签 ----
@@ -1162,23 +1231,33 @@ void AutoChessDemo::RebuildDragPreview(bool overBoard, bool validSpot)
 
 void AutoChessDemo::UpdateDragPreview(const QPoint& globalPos)
 {
-    if (m_dragInfo.slotIndex < 0 || !m_dragInfo.unit)
+    if (!m_dragInfo.active || !m_dragInfo.unit || !m_dragOverlay)
     {
         HideDragPreview();
         return;
     }
 
-    // 初始化预览控件（只创建一次，作为无父窗口的浮动层避免坐标映射延迟）
-    if (!m_dragPreview)
+    // 首次拖拽时预缓存单位贴图
+    if (m_dragUnitCache.isNull())
     {
-        m_dragPreview = new QLabel(nullptr); // 无 parent，独立窗口
-        m_dragPreview->setWindowFlags(Qt::ToolTip | Qt::FramelessWindowHint |
-                                      Qt::WindowStaysOnTopHint);
-        m_dragPreview->setAttribute(Qt::WA_TranslucentBackground);
-        m_dragPreview->setAttribute(Qt::WA_ShowWithoutActivating);
-        m_dragPreview->setStyleSheet("background: transparent;");
-        m_dragPreview->resize(DRAG_PREVIEW_SIZE, DRAG_PREVIEW_SIZE);
-        m_dragPreview->show();
+        auto texPath = [&]() -> QString {
+            const auto& name = m_dragInfo.unit->GetName();
+            QMap<std::string, QString> texMap = {
+                {"步兵", "warrior"}, {"弓箭手", "archer"}, {"法师", "mage"},
+                {"治疗师", "healer"}, {"骑士", "knight"}, {"刺客", "assassin"},
+                {"狂战士", "tank"}, {"狙击手", "sniper"}, {"侍从", "squire"},
+                {"Boss", "boss"}
+            };
+            auto iter = texMap.find(name);
+            if (iter != texMap.end())
+                return QString(":/AutoChessDemo/assets/units/%1.png").arg(iter.value());
+            return ":/AutoChessDemo/assets/units/warrior.png";
+        }();
+        QPixmap px(texPath);
+        if (!px.isNull())
+            m_dragUnitCache = px.scaled(64, 64, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        else
+            m_dragUnitCache = QPixmap(64, 64);
     }
 
     // 计算当前悬停状态
@@ -1198,7 +1277,8 @@ void AutoChessDemo::UpdateDragPreview(const QPoint& globalPos)
                     !m_gameManager.IsSlotLimitReached();
     }
 
-    // 仅当状态变化时才重绘缓存的预览图（不做无用渲染）
+    // 仅当状态变化时才重绘缓存的预览图
+    bool previewChanged = false;
     if (m_dragPreviewCache.isNull() ||
         overBoard != m_dragPreviewOverBoard ||
         validSpot != m_dragPreviewValidSpot)
@@ -1206,8 +1286,16 @@ void AutoChessDemo::UpdateDragPreview(const QPoint& globalPos)
         m_dragPreviewOverBoard = overBoard;
         m_dragPreviewValidSpot = validSpot;
         RebuildDragPreview(overBoard, validSpot);
-        m_dragPreview->setPixmap(m_dragPreviewCache);
+        previewChanged = true;
     }
+
+    // DragOverlay：仅首次或预览图变化时设置图片，之后只移动位置
+    // moveTo 只局部 update(100x100)，避免全区域重绘
+    QPoint overlayPos = m_gameContainer->mapFromGlobal(globalPos);
+    if (previewChanged || !m_dragOverlay->showing)
+        m_dragOverlay->showAt(m_dragPreviewCache, overlayPos);
+    else
+        m_dragOverlay->moveTo(overlayPos);
 }
 
 void AutoChessDemo::UpdateBoardHover(const QPoint& globalPos)
@@ -1217,7 +1305,11 @@ void AutoChessDemo::UpdateBoardHover(const QPoint& globalPos)
     QPoint boardLocal = m_boardWidget->mapFromGlobal(globalPos);
     if (!m_boardWidget->rect().contains(boardLocal))
     {
-        m_boardWidget->ClearHighlights();
+        if (m_dragInfo.hoverRow >= 0 || m_dragInfo.hoverCol >= 0)
+        {
+            m_dragInfo.hoverRow = m_dragInfo.hoverCol = -1;
+            m_boardWidget->ClearHighlights();
+        }
         return;
     }
 
@@ -1225,6 +1317,13 @@ void AutoChessDemo::UpdateBoardHover(const QPoint& globalPos)
     int cellH = m_boardWidget->height() / m_gameManager.GetBoard().GetRows();
     int col = boardLocal.x() / cellW;
     int row = boardLocal.y() / cellH;
+
+    // 同一格 → 跳过重绘
+    if (row == m_dragInfo.hoverRow && col == m_dragInfo.hoverCol)
+        return;
+
+    m_dragInfo.hoverRow = row;
+    m_dragInfo.hoverCol = col;
 
     Position hovered(row, col);
     bool slotFull = m_gameManager.IsSlotLimitReached();
@@ -1303,14 +1402,13 @@ void AutoChessDemo::CancelDrag()
 void AutoChessDemo::HideDragPreview()
 {
     m_dragPreviewCache = QPixmap();
+    m_dragUnitCache = QPixmap();
     m_dragPreviewOverBoard = false;
     m_dragPreviewValidSpot = false;
-    if (m_dragPreview)
+    if (m_dragOverlay)
     {
         m_boardWidget->ClearHighlights();
-        m_dragPreview->hide();
-        m_dragPreview->deleteLater();
-        m_dragPreview = nullptr;
+        m_dragOverlay->hideOverlay();
     }
 }
 
@@ -1351,24 +1449,24 @@ bool AutoChessDemo::nativeEvent(const QByteArray& eventType, void* message, qint
 
 bool AutoChessDemo::eventFilter(QObject* obj, QEvent* event)
 {
+    // 游戏容器尺寸变化时同步覆盖层
+    if (obj == m_gameContainer && event->type() == QEvent::Resize)
+    {
+        if (m_dragOverlay)
+            m_dragOverlay->setGeometry(m_gameContainer->rect());
+        return false;
+    }
+
     if (event->type() == QEvent::MouseMove)
     {
         QMouseEvent* me = static_cast<QMouseEvent*>(event);
 
         if (m_dragInfo.active)
         {
-            // 1) 位置更新优先 — 全局坐标直接定位，零延迟
-            QPoint gPos = me->globalPosition().toPoint();
-            if (m_dragPreview)
-                m_dragPreview->move(gPos.x() - DRAG_PREVIEW_SIZE / 2,
-                                    gPos.y() - DRAG_PREVIEW_SIZE / 2);
-
-            // 2) 再处理渲染（缓存命中时仅做状态判断，不重绘）
             QPoint globalPos = me->globalPosition().toPoint();
             UpdateDragPreview(globalPos);
             UpdateBoardHover(globalPos);
-            m_boardWidget->SetDragZoneHighlight(true);
-            setCursor(Qt::ClosedHandCursor);
+            // SetDragZoneHighlight 和 setCursor 已在拖拽启动时一次性设置，无需每帧重复
         }
         // 不消耗事件，让子控件继续处理（如 bench 悬停高亮）
         return false;

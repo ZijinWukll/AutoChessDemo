@@ -13,7 +13,7 @@ namespace synera
         QMap<std::string, QString> texMap = {
             {"步兵", "warrior"}, {"弓箭手", "archer"}, {"法师", "mage"},
             {"治疗师", "healer"}, {"骑士", "knight"}, {"刺客", "assassin"},
-            {"狂战士", "tank"}, {"狙击手", "archer"}, {"侍从", "knight"},
+            {"狂战士", "tank"}, {"狙击手", "sniper"}, {"侍从", "squire"},
             {"Boss", "boss"}
         };
         auto it = texMap.find(unitName);
@@ -162,18 +162,19 @@ namespace synera
                                      Qt::AlignCenter, QString::number(cost));
                 }
 
-                // ===== 单位精灵图 =====
+                // ===== 商店头像：4x 头部特写，不裁剪溢出让卡片层叠 =====
                 QString texPath = GetUnitTexture(unit->GetName());
                 QPixmap unitTex(texPath);
                 if (!unitTex.isNull())
                 {
                     int spriteSize = qMin(cardW - 14, cardH - 56);
-                    spriteSize = qMin(spriteSize, 54);
+                    spriteSize = qMin(spriteSize, 64);
                     spriteSize = qMax(spriteSize, 32);
-                    QPixmap scaled = unitTex.scaled(spriteSize, spriteSize,
-                                                     Qt::KeepAspectRatio, Qt::SmoothTransformation);
+                    QPixmap big = unitTex.scaled(spriteSize * 4, spriteSize * 4,
+                                                  Qt::KeepAspectRatio, Qt::SmoothTransformation);
+                    QPixmap scaled = big.copy(0, 0, big.width(), big.height() / 2);
                     int sx = cardRect.center().x() - scaled.width() / 2;
-                    int sy = cardRect.top() + 22;
+                    int sy = cardRect.top() - 4;
                     painter.drawPixmap(sx, sy, scaled);
                 }
                 else

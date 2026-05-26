@@ -19,7 +19,7 @@ namespace synera
         m_currentWave = 1;
         m_playerHp = 100;
         m_phase = GamePhase::Preparation;
-        m_lastCombatResult = false;
+        m_lastCombatResult = CombatResult::EnemyWin;
         m_gameOver = false;
         m_gameWon = false;
         m_purchasedSlots = 0;
@@ -138,16 +138,31 @@ namespace synera
 
             if (!m_combatSystem.IsCombatActive())
             {
-                // 判断胜负
-                bool playerWon = false;
+                // 判断胜负/平局：扫描棋盘上的存活单位
+                bool playerHasAlive = false;
+                bool enemyHasAlive = false;
                 for (int r = 0; r < m_board.GetRows(); ++r)
                     for (int c = 0; c < m_board.GetCols(); ++c)
                     {
                         auto u = m_board.GetOccupant(Position(r, c));
-                        if (u && u->GetOwner() == Owner::PlayerCtrl && u->IsAlive())
-                            playerWon = true;
+                        if (u && u->IsAlive())
+                        {
+                            if (u->GetOwner() == Owner::PlayerCtrl)
+                                playerHasAlive = true;
+                            else
+                                enemyHasAlive = true;
+                        }
                     }
-                OnCombatEnd(playerWon);
+
+                CombatResult result;
+                if (playerHasAlive && !enemyHasAlive)
+                    result = CombatResult::PlayerWin;
+                else if (!playerHasAlive && enemyHasAlive)
+                    result = CombatResult::EnemyWin;
+                else
+                    result = CombatResult::Draw;  // 双方全灭 → 平局
+
+                OnCombatEnd(result);
             }
         }
     }
@@ -397,6 +412,19 @@ namespace synera
         if (name == "法师" || name == "骑士" || name == "治疗师") return 2;
         if (name == "刺客" || name == "狂战士" || name == "狙击手") return 3;
         return 1;
+    }
+
+    // 计算敌方存活单位对玩家造成的额外伤害
+    // 1★低费=1，1★中费=2，1★高费=3；2★=×2，3★=×3
+    static int GetSurvivorDamage(const std::shared_ptr<Unit>& unit)
+    {
+        int cost = GetUnitCostForSell(unit->GetName());
+        switch (unit->GetStarLevel())
+        {
+        case StarLevel::Two:   return cost * 2;
+        case StarLevel::Three: return cost * 3;
+        default:               return cost;
+        }
     }
 
     void GameManager::SellUnitFromBench(int slotIndex)
@@ -679,7 +707,7 @@ namespace synera
 
     // ========== 内部函数 ==========
 
-    void GameManager::OnCombatEnd(bool playerWon)
+    void GameManager::OnCombatEnd(CombatResult result)
     {
         // 防重入：游戏已结束则不再结算（避免 Update 循环调用）
         if (m_gameOver || m_gameWon)
@@ -688,146 +716,133 @@ namespace synera
             return;
         }
 
-        m_lastCombatResult = playerWon;
+        m_lastCombatResult = result;
+        m_lastCombatDamage = 0;
 
-        if (playerWon)
+        switch (result)
         {
-            // 胜利奖励：当前波数 + 10
-            {
-                int wave = m_currentWave;
-                int reward = wave * 2 + (wave >= 11 ? 5 : 0);
-                m_gold += reward;
+        case CombatResult::PlayerWin:
+        {
+            int wave = m_currentWave;
+            // 胜利奖励：波数 × 2，第 11 波起额外 +5
+            int reward = wave * 2 + (wave >= 11 ? 5 : 0);
+            m_gold += reward;
 
-                // HP 恢复：HP != 100 时回复 当前波数 × 2
-                if (m_playerHp < 100)
-                {
-                    m_playerHp += wave * 2;
-                    if (m_playerHp > 100)
-                        m_playerHp = 100;
-                }
-            }
+            // 血量只减不增，胜利不恢复 HP
 
             // 掉落装备检查
             auto drops = m_equipManager.GenerateDrops(m_currentWave);
             for (auto& equip : drops)
-            {
                 m_equipmentInventory.push_back(equip);
-            }
+            break;
         }
-        else
+
+        case CombatResult::EnemyWin:
         {
-            // 失败扣血：当前波数 × 4
-            int damage = m_currentWave * 4;
-            m_playerHp -= damage;
+            int wave = m_currentWave;
+
+            // === 新扣血公式 ===
+            // 基础伤害（随回合递增）
+            int baseDamage = 5;
+            if (wave >= 5 && wave <= 10)
+                baseDamage = 10;
+            else if (wave >= 11)
+                baseDamage = 15;
+
+            // 额外伤害：敌方存活单位（在清理棋盘之前计算）
+            int extraDamage = 0;
+            for (int r = 0; r < m_board.GetRows(); ++r)
+                for (int c = 0; c < m_board.GetCols(); ++c)
+                {
+                    auto u = m_board.GetOccupant(Position(r, c));
+                    if (u && u->GetOwner() == Owner::EnemyCtrl && u->IsAlive())
+                        extraDamage += GetSurvivorDamage(u);
+                }
+
+            int totalDamage = baseDamage + extraDamage;
+            m_lastCombatDamage = totalDamage;
+            m_playerHp -= totalDamage;
             if (m_playerHp <= 0)
             {
                 m_playerHp = 0;
-                m_gameOver = true;  // HP=0 → 游戏结束
+                m_gameOver = true;
             }
 
-            // 失败补偿：当前波数 × 3 + 5
-            m_gold += m_currentWave * 2 + 5;
+            // 失败补偿
+            m_gold += wave * 2 + 5;
+            break;
         }
 
-        // 战败时：将越界的敌方存活单位移回敌方半场首行
-        if (!playerWon)
-            RepositionSurvivingEnemies();
+        case CombatResult::Draw:
+        {
+            // 平局：不扣血，仅少量金币补偿
+            m_gold += m_currentWave * 2 + 2;
+            break;
+        }
+        }
 
-        // 清空棋盘上的死亡单位
+        // ===== 战后清理 =====
+
+        // 1. 清空所有敌方单位（每回合结束敌方全部消失，下一轮重新随机生成）
         for (int r = 0; r < m_board.GetRows(); ++r)
             for (int c = 0; c < m_board.GetCols(); ++c)
             {
                 auto unit = m_board.GetOccupant(Position(r, c));
-                if (unit && !unit->IsAlive())
+                if (unit && unit->GetOwner() == Owner::EnemyCtrl)
                     m_board.RemoveUnit(Position(r, c));
             }
 
-        // 战后重置己方单位到玩家半场首行，按血量排序
+        // 2. 收集并复活己方单位（包括战斗中阵亡的，全部满血复活）
         ResetPlayerUnitsAfterCombat();
 
         NextWave();
     }
 
-    void GameManager::RepositionSurvivingEnemies()
-    {
-        // 收集我方半场所有存活的敌方单位
-        std::vector<std::shared_ptr<Unit>> invaders;
-        int halfRow = m_board.GetRows() / 2;
-        for (int r = halfRow; r < m_board.GetRows(); ++r)
-            for (int c = 0; c < m_board.GetCols(); ++c)
-            {
-                auto u = m_board.GetOccupant(Position(r, c));
-                if (u && u->GetOwner() == Owner::EnemyCtrl && u->IsAlive())
-                {
-                    invaders.push_back(u);
-                    m_board.RemoveUnit(Position(r, c));
-                }
-            }
-
-        if (invaders.empty())
-            return;
-
-        // 排序：近战在前（按最大HP降序→坦克顶前面），远程在后（按射程升序）
-        std::sort(invaders.begin(), invaders.end(),
-            [](const auto& a, const auto& b) {
-                bool aMelee = a->GetRange() <= 1;
-                bool bMelee = b->GetRange() <= 1;
-                if (aMelee != bMelee) return aMelee;
-                if (aMelee) return a->GetMaxHp() > b->GetMaxHp();
-                return a->GetRange() < b->GetRange();
-            });
-
-        // 放置在敌方半场首行（靠近中线的那一行），从左到右排列
-        int targetRow = halfRow - 1;
-        int col = 0;
-        for (auto& u : invaders)
-        {
-            while (col < m_board.GetCols() && m_board.IsOccupied(Position(targetRow, col)))
-                ++col;
-            if (col >= m_board.GetCols())
-                break;
-            m_board.PlaceUnit(u, Position(targetRow, col));
-            u->SetGridPosition(targetRow, col);
-            ++col;
-        }
-    }
-
     void GameManager::ResetPlayerUnitsAfterCombat()
     {
-        // 收集所有存活的己方单位
-        std::vector<std::shared_ptr<Unit>> alivePlayerUnits;
+        // 收集棋盘上所有己方单位（包括战斗中阵亡的，全部满血复活）
+        std::vector<std::shared_ptr<Unit>> allPlayerUnits;
         for (int r = 0; r < m_board.GetRows(); ++r)
             for (int c = 0; c < m_board.GetCols(); ++c)
             {
                 auto u = m_board.GetOccupant(Position(r, c));
-                if (u && u->GetOwner() == Owner::PlayerCtrl && u->IsAlive())
-                    alivePlayerUnits.push_back(u);
+                if (u && u->GetOwner() == Owner::PlayerCtrl)
+                    allPlayerUnits.push_back(u);
             }
 
-        if (alivePlayerUnits.empty())
+        if (allPlayerUnits.empty())
             return;
 
-        // 按当前 HP 从高到低排序（坦克在前）
-        std::sort(alivePlayerUnits.begin(), alivePlayerUnits.end(),
-            [](const std::shared_ptr<Unit>& a, const std::shared_ptr<Unit>& b) {
-                return a->GetHp() > b->GetHp();
-            });
-
         // 从棋盘上移除己方单位
-        for (auto& u : alivePlayerUnits)
+        for (auto& u : allPlayerUnits)
         {
             Position p(u->GetGridRow(), u->GetGridCol());
             m_board.RemoveUnit(p);
         }
 
+        // 全部满血复活，重置状态
+        for (auto& u : allPlayerUnits)
+        {
+            u->ResetHp();
+            u->ResetMana();
+            u->SetState(UnitState::Idle);
+            u->SetAttackCooldown(0);
+            u->SetMoveCooldown(0);
+        }
+
+        // 按最大 HP 从高到低排序（坦克在前）
+        std::sort(allPlayerUnits.begin(), allPlayerUnits.end(),
+            [](const std::shared_ptr<Unit>& a, const std::shared_ptr<Unit>& b) {
+                return a->GetMaxHp() > b->GetMaxHp();
+            });
+
         // 在我方半场首行（row = rows/2）依次放置
         int startRow = m_board.GetRows() / 2;
         int col = 0;
-        for (auto& u : alivePlayerUnits)
+        for (auto& u : allPlayerUnits)
         {
             if (col >= m_board.GetCols())
             {
-                // 超过一行放不下，全部放第一列
                 m_bench.AddUnit(u);
                 u->SetGridPosition(-1, -1);
                 continue;
@@ -840,7 +855,6 @@ namespace synera
             }
             else
             {
-                // 被占（不应发生）→ 放备战区
                 m_bench.AddUnit(u);
                 u->SetGridPosition(-1, -1);
             }
@@ -909,10 +923,10 @@ namespace synera
         if (m_currentWave > MAX_WAVES)
         {
             // 走完所有波次
-            if (m_lastCombatResult)
+            if (m_lastCombatResult == CombatResult::PlayerWin)
                 m_gameWon = true;   // 最后一波胜利 → 通关
             else
-                m_gameOver = true;  // 最后一波失败 → 游戏结束
+                m_gameOver = true;  // 最后一波失败/平局 → 游戏结束
             m_phase = GamePhase::Preparation;
             return;
         }
