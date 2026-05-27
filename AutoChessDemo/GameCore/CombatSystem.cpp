@@ -308,10 +308,11 @@ namespace synera
         // 重置攻击冷却
         unit->SetAttackCooldown(ATTACK_COOLDOWN_TIME);
 
-        // 如果目标死亡
+        // 如果目标死亡 → 立即从棋盘移除（否则尸体堵塞路径，导致其他单位卡死）
         if (!target->IsAlive())
         {
             target->SetState(UnitState::Dead);
+            m_board.RemoveUnit(Position(target->GetGridRow(), target->GetGridCol()));
         }
     }
 
@@ -402,8 +403,6 @@ namespace synera
             const Position& next = candidates[i];
             if (!m_board.IsInBounds(next)) continue;
             if (m_board.IsOccupied(next)) continue;
-            auto occ = m_board.GetOccupant(next);
-            if (occ && occ->GetOwner() != unit.GetOwner()) continue;
 
             // 可以移动
             m_board.MoveUnit(from, next);

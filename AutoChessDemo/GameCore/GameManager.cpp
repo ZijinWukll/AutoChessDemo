@@ -105,6 +105,16 @@ namespace synera
 
     void GameManager::StartCombatPhase()
     {
+        // 保存当前棋盘上己方单位的位置（战后恢复阵型用）
+        m_preCombatPositions.clear();
+        for (int r = 0; r < m_board.GetRows(); ++r)
+            for (int c = 0; c < m_board.GetCols(); ++c)
+            {
+                auto u = m_board.GetOccupant(Position(r, c));
+                if (u && u->GetOwner() == Owner::PlayerCtrl)
+                    m_preCombatPositions.push_back({u, r, c});
+            }
+
         // 收集棋盘上所有己方单位
         std::vector<std::shared_ptr<Unit>> playerCombatUnits;
         for (int r = 0; r < m_board.GetRows(); ++r)
@@ -800,66 +810,46 @@ namespace synera
 
     void GameManager::ResetPlayerUnitsAfterCombat()
     {
-        // 收集棋盘上所有己方单位（包括战斗中阵亡的，全部满血复活）
-        std::vector<std::shared_ptr<Unit>> allPlayerUnits;
+        if (m_preCombatPositions.empty())
+            return;
+
+        // 第 1 步：从棋盘上移除所有己方单位（战斗后位置可能有变化）
         for (int r = 0; r < m_board.GetRows(); ++r)
             for (int c = 0; c < m_board.GetCols(); ++c)
             {
                 auto u = m_board.GetOccupant(Position(r, c));
                 if (u && u->GetOwner() == Owner::PlayerCtrl)
-                    allPlayerUnits.push_back(u);
+                    m_board.RemoveUnit(Position(r, c));
             }
 
-        if (allPlayerUnits.empty())
-            return;
-
-        // 从棋盘上移除己方单位
-        for (auto& u : allPlayerUnits)
+        // 第 2 步：全部满血复活，重置状态
+        for (auto& slot : m_preCombatPositions)
         {
-            Position p(u->GetGridRow(), u->GetGridCol());
-            m_board.RemoveUnit(p);
+            slot.unit->ResetHp();
+            slot.unit->ResetMana();
+            slot.unit->SetState(UnitState::Idle);
+            slot.unit->SetAttackCooldown(0);
+            slot.unit->SetMoveCooldown(0);
         }
 
-        // 全部满血复活，重置状态
-        for (auto& u : allPlayerUnits)
+        // 第 3 步：按战斗前保存的位置放回棋盘，原样恢复阵型
+        for (auto& slot : m_preCombatPositions)
         {
-            u->ResetHp();
-            u->ResetMana();
-            u->SetState(UnitState::Idle);
-            u->SetAttackCooldown(0);
-            u->SetMoveCooldown(0);
-        }
-
-        // 按最大 HP 从高到低排序（坦克在前）
-        std::sort(allPlayerUnits.begin(), allPlayerUnits.end(),
-            [](const std::shared_ptr<Unit>& a, const std::shared_ptr<Unit>& b) {
-                return a->GetMaxHp() > b->GetMaxHp();
-            });
-
-        // 在我方半场首行（row = rows/2）依次放置
-        int startRow = m_board.GetRows() / 2;
-        int col = 0;
-        for (auto& u : allPlayerUnits)
-        {
-            if (col >= m_board.GetCols())
-            {
-                m_bench.AddUnit(u);
-                u->SetGridPosition(-1, -1);
-                continue;
-            }
-            Position p(startRow, col);
+            Position p(slot.row, slot.col);
             if (!m_board.IsOccupied(p))
             {
-                m_board.PlaceUnit(u, p);
-                u->SetGridPosition(startRow, col);
+                m_board.PlaceUnit(slot.unit, p);
+                slot.unit->SetGridPosition(slot.row, slot.col);
             }
             else
             {
-                m_bench.AddUnit(u);
-                u->SetGridPosition(-1, -1);
+                // 容错：目标格被占（极端情况），转入备战区
+                m_bench.AddUnit(slot.unit);
+                slot.unit->SetGridPosition(-1, -1);
             }
-            col++;
         }
+
+        m_preCombatPositions.clear();
     }
 
     void GameManager::ApplySynergyBonuses()
@@ -886,19 +876,60 @@ namespace synera
                     if (!unit->HasTrait(info.trait))
                         continue;
 
+                    bool isT3 = (info.activeThreshold >= SYNERGY_THRESHOLD_3);
                     bool isT2 = (info.activeThreshold >= SYNERGY_THRESHOLD_2);
 
-                    // 各羁绊专属效果（T1=低档, T2=高档）
-                    if (info.trait == "人类")        atkMul += isT2 ? 0.25f : 0.10f;
-                    else if (info.trait == "战士")   hpMul  += isT2 ? 0.25f : 0.10f;
-                    else if (info.trait == "兽人")   atkMul += isT2 ? 0.25f : 0.12f;
-                    else if (info.trait == "精灵")   atkMul += isT2 ? 0.20f : 0.08f;
-                    else if (info.trait == "远程")   rangeBonus += isT2 ? 2 : 1;
-                    else if (info.trait == "法师")   atkMul += isT2 ? 0.25f : 0.12f;
-                    else if (info.trait == "骑士")   hpMul  += isT2 ? 0.25f : 0.12f;
-                    else if (info.trait == "治疗")   { atkMul += isT2 ? 0.15f : 0.08f; hpMul += isT2 ? 0.15f : 0.08f; }
-                    else if (info.trait == "刺客")   atkMul += isT2 ? 0.30f : 0.15f;
-                    else if (info.trait == "侍从")   hpMul  += isT2 ? 0.20f : 0.10f;
+                    // 各羁绊专属效果（T1=低档, T2=中档, T3=高档）
+                    if (info.trait == "人类") {
+                        if (isT3)      atkMul += 0.40f;
+                        else if (isT2) atkMul += 0.25f;
+                        else           atkMul += 0.10f;
+                    }
+                    else if (info.trait == "战士") {
+                        if (isT3)      hpMul += 0.45f;
+                        else if (isT2) hpMul += 0.25f;
+                        else           hpMul += 0.10f;
+                    }
+                    else if (info.trait == "兽人") {
+                        if (isT3)      atkMul += 0.40f;
+                        else if (isT2) atkMul += 0.25f;
+                        else           atkMul += 0.12f;
+                    }
+                    else if (info.trait == "精灵") {
+                        if (isT3)      atkMul += 0.35f;
+                        else if (isT2) atkMul += 0.20f;
+                        else           atkMul += 0.08f;
+                    }
+                    else if (info.trait == "远程") {
+                        if (isT3)      rangeBonus += 3;
+                        else if (isT2) rangeBonus += 2;
+                        else           rangeBonus += 1;
+                    }
+                    else if (info.trait == "法师") {
+                        if (isT3)      atkMul += 0.45f;
+                        else if (isT2) atkMul += 0.25f;
+                        else           atkMul += 0.12f;
+                    }
+                    else if (info.trait == "骑士") {
+                        if (isT3)      hpMul += 0.45f;
+                        else if (isT2) hpMul += 0.25f;
+                        else           hpMul += 0.12f;
+                    }
+                    else if (info.trait == "治疗") {
+                        if (isT3)      { atkMul += 0.25f; hpMul += 0.25f; }
+                        else if (isT2) { atkMul += 0.15f; hpMul += 0.15f; }
+                        else           { atkMul += 0.08f; hpMul += 0.08f; }
+                    }
+                    else if (info.trait == "刺客") {
+                        if (isT3)      atkMul += 0.50f;
+                        else if (isT2) atkMul += 0.30f;
+                        else           atkMul += 0.15f;
+                    }
+                    else if (info.trait == "侍从") {
+                        if (isT3)      hpMul += 0.35f;
+                        else if (isT2) hpMul += 0.20f;
+                        else           hpMul += 0.10f;
+                    }
                 }
 
                 if (atkMul != 1.0f || hpMul != 1.0f || rangeBonus != 0)

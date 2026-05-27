@@ -70,7 +70,7 @@ namespace synera
         layout->addStretch(1);
 
         // 版本信息
-        QLabel* versionLabel = new QLabel("v4.3", this);
+        QLabel* versionLabel = new QLabel("v4.4", this);
         versionLabel->setStyleSheet("color: #605878; font-size: 11px; padding: 8px;");
         versionLabel->setAlignment(Qt::AlignCenter);
         layout->addWidget(versionLabel, 0, Qt::AlignCenter);
@@ -267,10 +267,12 @@ namespace synera
 
 <h2>合星</h2>
 <p><b>3 个同名 1★ → 2★</b>（属性 ×1.8）<br>
-<b>3 个同名 2★ → 3★</b>（属性 ×3.6）</p>
+<b>3 个同名 2★ → 3★</b>（属性 ×3.6）<br>
+<b>侍从催化</b>：2 个同名单位 + 1 个侍从可代替 3 个同名合星，侍从被消耗</p>
 
 <h2>羁绊</h2>
-<p>同羁绊 ≥2 激活一档、≥4 激活二档，战斗前为全队加属性。<br>
+<p>按星级权重统计：1★=1 / 2★=3 / 3★=9。<br>
+权重 ≥3 激活一档、≥8 激活二档、≥15 激活三档，战斗前为全队加属性。<br>
 共 10 种羁绊：人类、战士、兽人、精灵、远程、法师、骑士、治疗、刺客、侍从。</p>
 
 <h2>棋盘席位</h2>

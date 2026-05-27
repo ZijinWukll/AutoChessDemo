@@ -152,7 +152,15 @@ namespace synera
         // #TODO: 进入下一波
         void NextWave();
 
-        // 战后重置己方单位：全部满血复活并按血量排序在我方半场首行排开
+        // 战后重置己方单位：全部满血复活并按战前阵型放回棋盘
         void ResetPlayerUnitsAfterCombat();
+
+        // 战斗前保存的己方单位棋盘位置
+        struct PreCombatSlot {
+            std::shared_ptr<Unit> unit;
+            int row = -1;
+            int col = -1;
+        };
+        std::vector<PreCombatSlot> m_preCombatPositions;
     };
 }

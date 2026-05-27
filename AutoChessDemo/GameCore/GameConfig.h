@@ -47,7 +47,8 @@ namespace synera
     // ---- 游戏轮数 ----
     constexpr int MAX_WAVES = 15;                    // 总波数（第 15 波为 Boss 关）
 
-    // ---- 阶段三：羁绊 ----
-    constexpr int SYNERGY_THRESHOLD_1 = 2;           // 羁绊生效阈值档位1
-    constexpr int SYNERGY_THRESHOLD_2 = 4;           // 羁绊生效阈值档位2
+    // ---- 阶段三：羁绊（星级权重制：1★=1, 2★=3, 3★=9） ----
+    constexpr int SYNERGY_THRESHOLD_1 = 3;           // T1：1 个 2★ 或 3 个 1★
+    constexpr int SYNERGY_THRESHOLD_2 = 8;           // T2：1 个 3★ 或 2 个 2★+2 个 1★
+    constexpr int SYNERGY_THRESHOLD_3 = 15;          // T3：2 个 3★ 或大量混搭高星
 }

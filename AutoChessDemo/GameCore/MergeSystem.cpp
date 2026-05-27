@@ -7,79 +7,130 @@ namespace synera
 {
     bool MergeSystem::TryMerge(std::vector<std::shared_ptr<Unit>>& units)
     {
-        auto groups = FindMergeGroups(units);
-        bool merged = false;
-
-        for (auto& group : groups)
+        // 反复寻找可合星组合，直到无法再合
+        bool anyMerged = false;
+        while (true)
         {
-            while (group.members.size() >= MERGE_COUNT)
-            {
-                // 取前 3 个
-                auto u1 = group.members[0];
-                auto u2 = group.members[1];
-                auto u3 = group.members[2];
+            auto groups = FindMergeGroups(units);
+            if (groups.empty())
+                break;
 
-                // 创建高星单位
-                auto newUnit = CreateMergedUnit({u1, u2, u3});
-                if (!newUnit)
-                    break;
+            // 每组固定 3 个成员（3 同名同星 或 2 同名同星 + 1 侍从）
+            auto& g = groups.front();
+            auto u1 = g.members[0];
+            auto u2 = g.members[1];
+            auto u3 = g.members[2];
 
-                // 从 units 中删除这 3 个
-                auto it1 = std::find(units.begin(), units.end(), u1);
-                if (it1 != units.end()) units.erase(it1);
-                auto it2 = std::find(units.begin(), units.end(), u2);
-                if (it2 != units.end()) units.erase(it2);
-                auto it3 = std::find(units.begin(), units.end(), u3);
-                if (it3 != units.end()) units.erase(it3);
+            auto newUnit = CreateMergedUnit({ u1, u2, u3 });
+            if (!newUnit)
+                break;
 
-                // 从 group.members 中删除前 3 个
-                group.members.erase(group.members.begin(), group.members.begin() + 3);
+            auto removeUnit = [&](std::shared_ptr<Unit> u) {
+                auto it = std::find(units.begin(), units.end(), u);
+                if (it != units.end()) units.erase(it);
+            };
+            removeUnit(u1);
+            removeUnit(u2);
+            removeUnit(u3);
 
-                // 把新单位加入 units
-                units.push_back(newUnit);
-
-                merged = true;
-            }
+            units.push_back(newUnit);
+            anyMerged = true;
         }
-
-        return merged;
+        return anyMerged;
     }
 
     bool MergeSystem::HasMergeable(const std::vector<std::shared_ptr<Unit>>& units) const
     {
-        auto groups = FindMergeGroups(units);
-        for (const auto& g : groups)
-        {
-            if (g.members.size() >= MERGE_COUNT)
-                return true;
-        }
-        return false;
+        return !FindMergeGroups(units).empty();
     }
 
     std::vector<MergeSystem::MergeGroup> MergeSystem::FindMergeGroups(const std::vector<std::shared_ptr<Unit>>& units) const
     {
+        // 第 1 步：将侍从与其他单位分开
+        std::vector<std::shared_ptr<Unit>> squires;
         std::unordered_map<std::string, std::vector<std::shared_ptr<Unit>>> groups;
 
         for (auto& unit : units)
         {
             if (!unit || !unit->IsAlive())
                 continue;
-            std::string key = unit->GetName() + "_" + std::to_string(static_cast<int>(unit->GetStarLevel()));
-            groups[key].push_back(unit);
-        }
-
-        std::vector<MergeGroup> result;
-        for (auto& pair : groups)
-        {
-            if (pair.second.size() >= MERGE_COUNT)
+            if (unit->GetName() == SQUIRE_NAME)
+                squires.push_back(unit);
+            else
             {
-                MergeGroup mg;
-                mg.name = pair.second[0]->GetName();
-                mg.star = pair.second[0]->GetStarLevel();
-                mg.members = std::move(pair.second);
-                result.push_back(mg);
+                std::string key = unit->GetName() + "_"
+                    + std::to_string(static_cast<int>(unit->GetStarLevel()));
+                groups[key].push_back(unit);
             }
         }
+
+        // 统计各星级侍从数量
+        int squireAtStar[4] = { 0, 0, 0, 0 };
+        for (auto& s : squires)
+            squireAtStar[static_cast<int>(s->GetStarLevel())]++;
+
+        std::vector<MergeGroup> result;
+
+        // 第 2 步：处理非侍从单位的合星
+        for (auto& pair : groups)
+        {
+            auto& members = pair.second;
+            int starInt = static_cast<int>(members[0]->GetStarLevel());
+
+            // 2a. 3+ 同名同星 → 标准合星（优先，不消耗侍从）
+            while (members.size() >= 3)
+            {
+                MergeGroup mg;
+                mg.name = members[0]->GetName();
+                mg.star = members[0]->GetStarLevel();
+                mg.members = { members[0], members[1], members[2] };
+                members.erase(members.begin(), members.begin() + 3);
+                result.push_back(std::move(mg));
+            }
+
+            // 2b. 2 同名同星 + 侍从 → 催化合星（消耗侍从）
+            while (members.size() >= 2 && squireAtStar[starInt] > 0)
+            {
+                auto squireIt = std::find_if(squires.begin(), squires.end(),
+                    [starInt](const auto& s) {
+                        return s && static_cast<int>(s->GetStarLevel()) == starInt;
+                    });
+                if (squireIt == squires.end())
+                    break;
+
+                MergeGroup mg;
+                mg.name = members[0]->GetName();
+                mg.star = members[0]->GetStarLevel();
+                mg.members = { members[0], members[1], *squireIt };
+                members.erase(members.begin(), members.begin() + 2);
+                squires.erase(squireIt);
+                squireAtStar[starInt]--;
+                result.push_back(std::move(mg));
+            }
+        }
+
+        // 第 3 步：处理剩余侍从的自我合星（3 侍从 → 2★ 侍从）
+        std::unordered_map<std::string, std::vector<std::shared_ptr<Unit>>> squireGroups;
+        for (auto& s : squires)
+        {
+            std::string key = std::string(SQUIRE_NAME) + "_"
+                + std::to_string(static_cast<int>(s->GetStarLevel()));
+            squireGroups[key].push_back(s);
+        }
+        for (auto& pair : squireGroups)
+        {
+            auto& members = pair.second;
+            while (members.size() >= 3)
+            {
+                MergeGroup mg;
+                mg.name = SQUIRE_NAME;
+                mg.star = members[0]->GetStarLevel();
+                mg.members = { members[0], members[1], members[2] };
+                members.erase(members.begin(), members.begin() + 3);
+                result.push_back(std::move(mg));
+            }
+        }
+
         return result;
     }
 
